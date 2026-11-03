@@ -263,7 +263,8 @@ def mlh(f: Fetcher, now: datetime) -> list[dict]:
         season = url.split("mlh.io")[1]
         soup = BeautifulSoup(page, "lxml")
         events = soup.select('[itemtype*="schema.org/Event"]') or soup.select(".event")
-        NOTES["mlh"] = "; ".join(tried + [f"{season}: page {len(page)} bytes, {len(events)} event blocks"])
+        skipped = {"past": 0, "not online/India": 0, "no link/name": 0}
+        before = len(out)
         if not events:
             # Record what the page does contain so the parser can be updated.
             NOTES["mlh"] += f", ld+json blocks {len(soup.select('script[type=\"application/ld+json\"]'))}, __NEXT_DATA__ {bool(soup.select_one('#__NEXT_DATA__'))}"
@@ -279,14 +280,21 @@ def mlh(f: Fetcher, now: datetime) -> list[dict]:
             online = "digital" in text or "online" in text
             city = prop("addressLocality")
             region = " ".join(x for x in [city, prop("addressRegion"), prop("addressCountry")] if x)
-            if not url or not name or not end or not _future(end, now):
+            if not url or not name or not end:
+                skipped["no link/name"] += 1
+                continue
+            if not _future(end, now):
+                skipped["past"] += 1
                 continue
             if not online and not INDIA_RX.search(region):
+                skipped["not online/India"] += 1
                 continue
             out.append(record(platform="mlh", key=url, title=name, organizer="Major League Hacking", url=url, kind="hackathon", now=now,
                               starts=start, ends=end, deadline=start or end, deadline_is="start" if start else "end", online=online,
                               city=None if online else city, country=None if online else "India",
                               description="Major League Hacking member event."))
+        tried.append(f"{season}: {len(events)} events, kept {len(out) - before}, skipped {skipped}")
+        NOTES["mlh"] = "; ".join(tried)
         if out:
             break
     return out[:MAX_PER_PLATFORM]
