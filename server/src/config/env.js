@@ -30,7 +30,9 @@ const schema = z.object({
 });
 
 function load() {
-  const parsed = schema.safeParse(process.env);
+  // Blank lines copied from .env.example (e.g. `SERVE_WEB=`) mean "not set": use the default.
+  const raw = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== ''));
+  const parsed = schema.safeParse(raw);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
     throw new Error(`Invalid environment configuration:\n${issues}`);
