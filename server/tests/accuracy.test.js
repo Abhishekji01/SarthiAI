@@ -80,6 +80,20 @@ describe('ranked search', () => {
     expect(rankByQuery([about[0], mention], 'machine learning').results).toHaveLength(2);
   });
 
+  it('treats old and new Indian city names as the same place', () => {
+    const events = [
+      { _id: 'blr', title: 'BuildFest', organization: 'X', opportunityType: 'hackathon', location: { city: 'Bengaluru' } },
+      { _id: 'ggn', title: 'HackNCR', organization: 'Y', opportunityType: 'hackathon', location: { city: 'Gurugram' } },
+      { _id: 'job', title: 'Machine Learning Intern', organization: 'Z', opportunityType: 'internship', location: { city: 'Bengaluru' } },
+    ];
+    expect(rankByQuery(events, 'hackathon bangalore').results.map((r) => r.doc._id)).toEqual(['blr']);
+    expect(rankByQuery(events, 'gurgaon').results.map((r) => r.doc._id)).toEqual(['ggn']);
+    // A type word is a requirement: the internship that mentions hackathons is not a hackathon.
+    events[2].officialDescription = 'Hackathon winners preferred.';
+    expect(rankByQuery(events, 'hackathon bangalore').results.map((r) => r.doc._id)).toEqual(['blr']);
+    expect(rankByQuery(events, 'bangalore internship').results.map((r) => r.doc._id)).toEqual(['job']);
+  });
+
   it('relaxes to related results instead of returning nothing', () => {
     const r = rankByQuery(docs, 'isro satellite quantum');
     expect(r.relaxed).toBe(true);

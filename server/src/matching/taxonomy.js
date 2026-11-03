@@ -102,6 +102,17 @@ const CONCEPTS = {
   job: { label: 'Jobs', aliases: ['jobs', 'placement', 'placements', 'career', 'fulltime'], related: { internship: 0.4 } },
   program: { label: 'Programmes', aliases: ['programme', 'programmes', 'mentorship', 'bootcamp'], related: { opensource: 0.3 } },
   government: { label: 'Government', aliases: ['govt', 'publicsector', 'psu'], related: { scholarship: 0.2 } },
+  online: { label: 'Online', aliases: ['remote', 'virtual', 'digital', 'wfh', 'workfromhome'], related: {} },
+  // Indian cities: old and new names are the same place.
+  bengaluru: { label: 'Bengaluru', aliases: ['bangalore', 'blr'], related: {} },
+  gurugram: { label: 'Gurugram', aliases: ['gurgaon', 'ggn'], related: { delhincr: 0.8 } },
+  mumbai: { label: 'Mumbai', aliases: ['bombay', 'navimumbai'], related: {} },
+  chennai: { label: 'Chennai', aliases: ['madras'], related: {} },
+  kolkata: { label: 'Kolkata', aliases: ['calcutta'], related: {} },
+  pune: { label: 'Pune', aliases: ['poona'], related: {} },
+  thiruvananthapuram: { label: 'Thiruvananthapuram', aliases: ['trivandrum'], related: {} },
+  mysuru: { label: 'Mysuru', aliases: ['mysore'], related: {} },
+  delhincr: { label: 'Delhi NCR', aliases: ['delhi', 'newdelhi', 'ncr', 'noida', 'greaternoida', 'ghaziabad', 'faridabad'], related: { gurugram: 0.8 } },
 };
 
 const ALIAS_TO_ID = new Map();

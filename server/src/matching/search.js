@@ -131,7 +131,18 @@ const RELATED_FIELDS = new Set(['title', 'tags', 'skills', 'type']);
 
 const FOCUS_FIELDS = new Set(['title', 'tags', 'type', 'organization']);
 
-function groupMatch(group, fields) {
+// Query words that name a kind of opportunity act as a type requirement, not a free-text term:
+// "hackathon bangalore" must only return hackathons, even if a job description mentions hackathons.
+const TYPE_CONCEPTS = {
+  internship: ['internship'], scholarship: ['scholarship'], fellowship: ['fellowship'], job: ['job'],
+  hackathon: ['hackathon'], competition: ['competition', 'hackathon'],
+};
+
+function groupMatch(group, fields, doc) {
+  if (group.kind === 'concept' && TYPE_CONCEPTS[group.id]) {
+    const ok = TYPE_CONCEPTS[group.id].includes(doc.opportunityType);
+    return { score: ok ? FIELD_WEIGHTS.type : 0, via: ok ? 'exact' : null, focus: ok };
+  }
   let best = 0;
   let via = null;
   let focus = false;
@@ -169,7 +180,7 @@ export function rankByQuery(docs, q, { includeMentions = false } = {}) {
 
   const analyzed = docs.map((doc) => ({ doc, fields: docFields(doc) }));
   // Document frequency per group -> IDF (rarer terms count more).
-  const perDoc = analyzed.map(({ doc, fields }) => ({ doc, matches: groups.map((g) => groupMatch(g, fields)) }));
+  const perDoc = analyzed.map(({ doc, fields }) => ({ doc, matches: groups.map((g) => groupMatch(g, fields, doc)) }));
   const N = Math.max(1, docs.length);
   const idf = groups.map((_, gi) => {
     const df = perDoc.filter((d) => d.matches[gi].score > 0).length;
