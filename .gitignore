@@ -1,0 +1,27 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+
+# Dependencies and generated data
+node_modules/
+.data/
+coverage/
+web/dist/
+ingest/.venv/
+ingest/cache/
+ingest/out/
+ingest/nsp.html
+ingest/aicte.html
+ingest/p.html
+__pycache__/
+
+# Android build outputs (project files are committed)
+*.apk
+*.aab
+.gradle/
+local.properties
+
+.DS_Store
