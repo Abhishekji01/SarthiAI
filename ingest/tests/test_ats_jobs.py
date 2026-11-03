@@ -137,3 +137,29 @@ def test_tidy_locations():
                        text="", url="https://x/3", apply_url=None, kind="job", now=NOW)
     m = ats_jobs.merge_duplicates([a, b, c])
     assert len(m) == 1 and m[0]["location"]["description"] == "Gurgaon India; also Pune" and "_cities" not in m[0]
+
+
+def test_skills_come_from_requirements_not_company_blurb():
+    text = ("About Us\nWe are an AI and machine learning company building robots with React dashboards.\n"
+            "Requirements\n• Strong basic knowledge of Figma\n• A portfolio of UX work\n"
+            "Nice to have\n• HTML and CSS\n"
+            "Benefits\nSpring internship programme, free lunch, Python workshops")
+    rec = ats_jobs.build(ats="greenhouse", board="x", job_id="1", company="X", title="UI/UX Designer", location="Bengaluru, India",
+                         text=text, url="https://x", apply_url=None, kind="job", now=NOW)
+    assert rec["requiredSkills"] == ["UI/UX design"]          # not ML/React from "About us", not VLSI from "basic"
+    assert rec["preferredSkills"] == ["HTML/CSS"]             # nice-to-have section
+    assert "role-design" in rec["tags"]
+    assert ats_jobs.role_family("Machine Learning Intern") == "ml-ai" and ats_jobs.role_family("SDE I") == "software"
+    assert ats_jobs.role_family("Junior Electrical Engineer ( Data Centre)") == "hardware"
+    assert ats_jobs.role_family("Data QA Associate") == "data" and ats_jobs.role_family("Security Engineer Intern") == "security"
+
+
+def test_graduation_years_from_real_phrasings():
+    g = lambda title, text: ats_jobs.graduation_years(title, ats_jobs.DASHES.sub("-", text), NOW)[:2]  # noqa: E731
+    assert g("Intern", "- 2027 graduates of Circuital branches only") == ([2027], True)
+    assert g("Apprentice", "Engineering or equivalent graduate (2026 pass\u2011out)") == ([2026], True)
+    assert g("QA Intern", "passing out date between 2023 - 2025") == ([2023, 2024, 2025], True)
+    assert g("Intern", "Eligibility Final year (graduating 2027)") == ([2027], True)
+    assert g("2027 Software Engineer - Campus Graduate Program", "") == ([2027], True)
+    assert g("Software Engineer, New Grad", "degree obtained by summer 2027, or equivalent") == ([2026, 2027], False)
+    assert g("Engineer", "Named to the 2026 AI Breakthrough Awards") == ([], False)

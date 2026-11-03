@@ -3,6 +3,7 @@ import { computeAvailability } from '../models/Opportunity.js';
 import { calendarDaysUntil } from '../utils/dates.js';
 import { canonical, compareSkills, relatedness, conceptLabel } from './taxonomy.js';
 import { contentTokens } from './search.js';
+import { roleFit, FAMILY_LABEL } from './roles.js';
 
 /**
  * Explainable relevance ranking. Hard eligibility (deterministic engine) is
@@ -20,7 +21,7 @@ import { contentTokens } from './search.js';
  * selection.
  */
 
-const WEIGHTS = { skills: 30, interests: 20, education: 20, goal: 10, preferences: 10, timing: 10 };
+const WEIGHTS = { skills: 25, interests: 15, education: 15, role: 15, goal: 10, preferences: 10, timing: 10 };
 
 /** Skills the student lists, plus skills used in their projects/experience. */
 export function studentSkillEvidence(p) {
@@ -130,6 +131,24 @@ export function scoreOpportunity(opp, profile, { now = new Date(), eligibility }
     }
   }
 
+  // ---- Role family vs what the student is aiming for ----
+  const role = roleFit(opp, p);
+  let roleScore = WEIGHTS.role / 2;
+  if (role.fit) {
+    const kind = FAMILY_LABEL[role.family] ?? role.family;
+    const aims = role.targets.slice(0, 2).map((t) => FAMILY_LABEL[t] ?? t).join(' / ');
+    if (role.fit === 'match') {
+      roleScore = WEIGHTS.role;
+      factors.push({ factor: 'role', positive: true, detail: `A ${kind} role — what you're aiming for.` });
+    } else if (role.fit === 'related') {
+      roleScore = WEIGHTS.role * 0.4;
+      factors.push({ factor: 'role', positive: true, detail: `A ${kind} role, close to your ${aims} goal.` });
+    } else {
+      roleScore = 0;
+      factors.push({ factor: 'role', positive: false, detail: `This is a ${kind} role; your goal points to ${aims}.` });
+    }
+  }
+
   // ---- Work mode / location preferences ----
   let prefScore = WEIGHTS.preferences / 2;
   if ((p.workModes ?? []).length && ['remote', 'hybrid', 'onsite'].includes(opp.workMode)) {
@@ -175,7 +194,7 @@ export function scoreOpportunity(opp, profile, { now = new Date(), eligibility }
     factors.push({ factor: 'uncertainty', positive: false, detail: `${unknownMandatory.length} required criteri${unknownMandatory.length === 1 ? 'on needs' : 'a need'} your confirmation.` });
   }
 
-  const raw = skillsScore + interestScore + eduScore + goalScore + prefScore + timingScore - uncertaintyPenalty;
+  const raw = skillsScore + interestScore + eduScore + roleScore + goalScore + prefScore + timingScore - uncertaintyPenalty;
   const score = Math.max(0, Math.min(100, Math.round(raw)));
   const confirmedFit = elig.counts.met > 0;
   const hardBlocked = elig.overall === OVERALL.LIKELY_INELIGIBLE;
@@ -192,6 +211,8 @@ export function scoreOpportunity(opp, profile, { now = new Date(), eligibility }
     // At least one published criterion was checked against the student's profile and met.
     // Without this, relevance rests on keywords alone, so it is not a top recommendation.
     confirmedFit,
+    // 'match' | 'related' | 'mismatch' | null — the listing's role vs the student's goal and interests.
+    roleFit: role.fit,
     availability,
     factors,
   };

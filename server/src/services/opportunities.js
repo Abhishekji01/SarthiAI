@@ -56,6 +56,7 @@ export function presentWithMatch(opp, user, state, now = new Date()) {
         audienceRestricted: match.audienceRestricted,
         confirmedFit: match.confirmedFit,
         confidence: match.confidence,
+        roleFit: match.roleFit,
         factors: match.factors,
       },
       isSaved: state.saved.has(id),
@@ -153,7 +154,10 @@ export async function recommendedMatches(user, { limit = 10, now = new Date(), t
   const open = docs.filter((o) => ['open', 'upcoming'].includes(computeAvailability(o, now)));
   const state = await userStateFor(user, open.map((d) => d._id));
   const ranked = rankMatches(open.map((o) => presentWithMatch(o, user, state, now)));
-  const isRecommended = (r) => !r.match.hardBlocked && !r.match.audienceRestricted && r.match.confirmedFit;
+  // Recommended = not ruled out, and relevance confirmed: a criterion met from the profile, or the
+  // role is exactly what the student is aiming for. A role that contradicts their goal never is.
+  const isRecommended = (r) => !r.match.hardBlocked && !r.match.audienceRestricted && r.match.roleFit !== 'mismatch'
+    && (r.match.confirmedFit || r.match.roleFit === 'match');
   const recommended = ranked.filter(isRecommended).slice(0, limit).map((r) => ({ ...r.item, tier: 'recommended' }));
   const possible = tier === 'all'
     ? ranked.filter((r) => !r.match.hardBlocked && !isRecommended(r)).slice(0, possibleLimit).map((r) => ({ ...r.item, tier: 'possible' }))

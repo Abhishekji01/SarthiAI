@@ -58,7 +58,7 @@ matchesRouter.get('/', validate({ query: matchesQuerySchema }), async (req, res)
       excludedRestricted,
       excludedUnconfirmed,
       tier,
-      criteria: 'Verified, open or upcoming listings, excluding ones where a mandatory criterion is unmet or that are restricted to a group or field SarthiAI cannot confirm you belong to, or where nothing could be checked against your profile. Those still appear in Discover.',
+      criteria: 'Verified, open or upcoming listings that are not ruled out by a mandatory criterion or a group restriction, and whose fit is confirmed (a criterion met from your profile, or the role matches your goal). Roles that contradict your goal are never top recommendations. Everything still appears in Discover.',
     },
   });
 });

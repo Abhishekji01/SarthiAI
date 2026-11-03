@@ -61,15 +61,15 @@ TECH_RX = re.compile(
 SKILLS = {
     "Python": r"python", "Java": r"java(?!script)", "JavaScript": r"javascript|\bjs\b", "TypeScript": r"typescript",
     "C++": r"c\+\+|\bcpp\b", "Go": r"\bgolang\b", "Rust": r"\brust\b", "Kotlin": r"kotlin",
-    "Swift": r"\bswift\b", "SQL": r"\bsql\b|mysql|postgres", "React": r"\breact", "Node.js": r"node\.?js", "Django": r"django|flask|fastapi",
-    "Spring Boot": r"spring boot|\bspring\b", "HTML/CSS": r"\bhtml|\bcss\b", "Android development": r"\bandroid\b",
+    "Swift": r"\bswift\b", "SQL": r"\bsql\b|mysql|postgres", "React": r"\breact(?:\.?js)?\b|react native", "Node.js": r"node\.?js", "Django": r"django|flask|fastapi",
+    "Spring Boot": r"spring ?boot|spring framework|spring mvc", "HTML/CSS": r"\bhtml|\bcss\b", "Android development": r"\bandroid\b",
     "iOS development": r"\bios\b", "Flutter": r"flutter", "Machine learning": r"machine learning|\bml\b",
     "Deep learning": r"deep learning|pytorch|tensorflow", "Natural language processing": r"\bnlp\b|natural language|llm",
     "Computer vision": r"computer vision|opencv", "Data science": r"data science|pandas|numpy|data analy", "Statistics": r"statistic",
     "Data structures & algorithms": r"data structures|algorithms", "Cybersecurity": r"cyber|information security|application security|network security|penetration|vulnerab|\bsoc\b",
     "Networking": r"networking|tcp/ip|\bnetworks\b", "Linux": r"\blinux|\bunix", "Cloud computing": r"\baws\b|\bazure\b|\bgcp\b|google cloud",
     "DevOps": r"kubernetes|docker|ci/cd|terraform|devops", "Git": r"\bgit\b|github", "Databases": r"mongodb|nosql|redis|database",
-    "Embedded systems": r"embedded|firmware|microcontroller|rtos", "VLSI": r"vlsi|verilog|vhdl|rtl design|asic|fpga",
+    "Embedded systems": r"embedded (?:systems?|c|software|linux)|firmware|microcontroller|\brtos\b", "VLSI": r"\bvlsi\b|\bverilog\b|\bvhdl\b|\brtl design|\basic\b|\bfpga\b",
     "UI/UX design": r"\bui/ux\b|\bux\b|figma|user experience", "Backend development": r"backend|back-end|rest api|microservice",
     "Frontend development": r"frontend|front-end", "Spark/Big data": r"\bspark\b|hadoop|big data|kafka",
 }
@@ -78,8 +78,101 @@ SKILL_RX = {k: re.compile(v, re.I) for k, v in SKILLS.items()}
 DEGREE_PATTERNS = [
     ("B.Tech", r"b\.?\s?tech"), ("B.E.", r"\bb\.?\s?e\.?\b(?=[ /,(])"), ("BCA", r"\bbca\b"), ("B.Sc", r"b\.?\s?sc"),
     ("M.Tech", r"m\.?\s?tech"), ("MCA", r"\bmca\b"), ("M.Sc", r"m\.?\s?sc"), ("M.E.", r"\bm\.?\s?e\.?\b(?=[ /,(])"),
+    ("Bachelor's", r"\bbachelor(?:'|’)?s?\b|\bundergraduate degree|\bug degree"), ("Master's", r"\bmaster(?:'|’)?s\b(?! of)|\bpost ?graduate degree"),
+    ("Engineering", r"\bengineering (?:graduate|degree)|\bdegree in (?:computer |electronics |electrical )?engineering"),
 ]
-YEAR_RX = re.compile(r"(?:graduating|graduation|pass(?:ing)?[- ]?out|batch|class)\s*(?:year|in|of)?\s*:?\s*((?:20(?:2[5-9]|3[01])(?:\s*(?:,|/|&|and|or)\s*)?)+)", re.I)
+DASHES = re.compile(r"[‐-―−]")  # non-breaking/en/em dashes -> "-"
+
+# ---- Batch / graduation year (phrasings seen in real postings) ----------------------------
+_Y = r"20(?:2[3-9]|3[01])"
+_YEARS = rf"({_Y}(?:\s*(?:,|/|&|and|or|-|to)\s*{_Y})*)"
+BATCH_BEFORE = re.compile(rf"\b(?:graduat\w*|pass(?:ing)?[ -]?out\w*(?: date)?|batch(?: of)?|class of|final[- ]year[^.\n]{{0,30}}?)"
+                          rf"\s*(?:year|in|of|between|from|:)?\s*:?\s*{_YEARS}", re.I)
+BATCH_AFTER = re.compile(rf"\b{_YEARS}\s*(?:graduates?|grads?|pass[ -]?outs?|passouts?|batch|passing out|graduating)\b", re.I)
+BY_YEAR = re.compile(rf"(?:obtained|completed?|complete|graduat\w*|degree)[^.\n]{{0,40}}?\bby\s+(?:(?:spring|summer|fall|autumn|winter|the end of|end of|june|july|may|august|december)\s+)?({_Y})", re.I)
+TITLE_YEAR = re.compile(rf"\b({_Y})\b.*\b(?:graduate|campus|new grad|university|early career)|\b(?:graduate|campus|new grad|university|early career)\b.*\b({_Y})\b", re.I)
+
+
+def _expand(years_text: str) -> set[int]:
+    ys = [int(y) for y in re.findall(r"20\d\d", years_text)]
+    if len(ys) == 2 and re.search(r"\d\s*(?:-|to)\s*20", years_text) and ys[0] < ys[1] <= ys[0] + 6:
+        return set(range(ys[0], ys[1] + 1))  # "between 2023 - 2025"
+    return set(ys)
+
+
+def graduation_years(title: str, text: str, now: datetime) -> tuple[list[int], bool, str | None]:
+    """(years, mandatory, excerpt). 'by <year>' phrasing gives a range and is not mandatory."""
+    years: set[int] = set()
+    excerpt = None
+    for rx in (BATCH_BEFORE, BATCH_AFTER):
+        for m in rx.finditer(text):
+            years |= _expand(m.group(1))
+            excerpt = excerpt or m.group(0)
+    m = TITLE_YEAR.search(title)
+    if m:
+        years.add(int(m.group(1) or m.group(2)))
+        excerpt = excerpt or title
+    if years:
+        return sorted(years), True, excerpt
+    m = BY_YEAR.search(text)
+    if m:
+        y = int(m.group(1))
+        return list(range(min(now.year, y), y + 1)), False, m.group(0)
+    return [], False, None
+
+
+# ---- Sections: skills come from what the posting requires, not from company blurbs --------
+_Q = r"(?:'|’)?"
+REQ_HEAD = (rf"requirements?|qualifications?|minimum qualifications|basic qualifications|required qualifications|required skills|"
+            rf"skills (?:&|and) requirements|skills required|what we{_Q}re looking for|what you{_Q}ll need|what you need|what you bring|"
+            rf"who you are|about you|you have|you should have|must[- ]haves?|mandatory|experience you{_Q}ll need|education and experience|eligibility")
+PREF_HEAD = rf"preferred qualifications|preferred skills|preferred|nice[- ]to[- ]haves?|good[- ]to[- ]haves?|bonus points?|bonus|pluses|it{_Q}s a plus"
+COMPANY_HEAD = (rf"about (?:us|the company|[A-Z][\w&.-]+)|company overview|who we are|our values|our mission|benefits|perks|why (?:join|us|work)[^:\n]{{0,30}}|"
+                rf"base salary[^:\n]{{0,20}}|compensation[^:\n]{{0,20}}|equal opportunity[^:\n]{{0,40}}|inclusion[^:\n]{{0,30}}|life at [^:\n]{{0,30}}|what we offer")
+OTHER_HEAD = (rf"responsibilities|key responsibilities|roles? (?:and|&) responsibilities|what you{_Q}ll do|what you will (?:be )?do(?:ing)?|"
+              rf"what you{_Q}ll own|about (?:the role|the job|role|the team)|position overview|role overview|job (?:description|summary)|the role|"
+              rf"position summary|reports to")
+HEAD_RX = re.compile(rf"(?:^|\n)[ \t•*#-]*(?P<h>{PREF_HEAD}|{REQ_HEAD}|{COMPANY_HEAD}|{OTHER_HEAD})[ \t]*(?::|\n)", re.I)
+
+
+def sections(text: str) -> dict[str, str]:
+    """Splits a posting into 'required', 'preferred', 'company', 'other' text by its headings."""
+    out = {"required": "", "preferred": "", "company": "", "other": ""}
+    marks = list(HEAD_RX.finditer(text))
+    out["other"] += text[: marks[0].start()] if marks else text
+    for i, m in enumerate(marks):
+        body = text[m.end(): marks[i + 1].start() if i + 1 < len(marks) else len(text)]
+        h = m.group("h").lower()
+        kind = ("preferred" if re.fullmatch(PREF_HEAD, h, re.I) else "required" if re.fullmatch(REQ_HEAD, h, re.I)
+                else "company" if re.fullmatch(COMPANY_HEAD, h, re.I) else "other")
+        out[kind] += "\n" + body
+    return out
+
+
+# ---- Role family (what kind of job this is), from the title ------------------------------
+ROLE_FAMILIES = [
+    ("ml-ai", r"machine learning|\bml\b|\bai\b|artificial intelligence|deep learning|\bnlp\b|computer vision|data scien|\bllms?\b|gen ?ai|applied scientist|research (?:engineer|scientist)"),
+    ("hardware", r"embedded|firmware|hardware|vlsi|asic|fpga|silicon|robotics|electronics|electrical|\bic\b|analog|mixed-signal|semiconductor"),
+    ("data", r"\bdata\b(?! cent(?:er|re))|analytics|business intelligence|\bbi\b"),
+    ("security", r"security|cyber|\bsoc\b|penetration"),
+    ("devops-cloud", r"devops|\bsre\b|site reliability|cloud|infrastructure|platform engineer"),
+    ("qa", r"\bqa\b|quality|\btest"),
+    ("mobile", r"android|\bios\b|mobile|flutter|react native"),
+    ("design", r"\bux\b|\bui/ux\b|\bui\b(?! engineer)|designer|design intern|product design"),
+    ("frontend", r"front[- ]?end|\bui engineer"),
+    ("support", r"support|customer|solutions? engineer|implementation|deployment|technical account|consultant|operations"),
+    ("writing", r"writer|documentation|technical publication"),
+    ("product", r"product (?:manager|analyst|management)|program manager"),
+    ("software", r"software|\bsde\b|\bswe\b|developer|back[- ]?end|full[- ]?stack|engineer|programmer"),
+]
+ROLE_RX = [(f, re.compile(rx, re.I)) for f, rx in ROLE_FAMILIES]
+
+
+def role_family(title: str) -> str | None:
+    for fam, rx in ROLE_RX:
+        if rx.search(title):
+            return fam
+    return None
 
 
 def company_name(raw: str) -> str:
@@ -167,21 +260,34 @@ def work_mode(raw: str, location: str) -> str:
 def build(*, ats: str, board: str, job_id: str, company: str, title: str, location: str, text: str, url: str,
           apply_url: str | None, kind: str, now: datetime, mode_raw: str = "", posted: str | None = None,
           compensation: str | None = None, team: str | None = None, min_years: int | None = None) -> dict:
-    blob = f"{title}\n{text}"
-    skills = [k for k, rx in SKILL_RX.items() if rx.search(blob)][:20]
-    degrees = [label for label, rx in DEGREE_PATTERNS if re.search(rx, text, re.I)]
-    years = sorted({int(y) for m in YEAR_RX.finditer(text) for y in re.findall(r"20\d\d", m.group(1))})
+    text = DASHES.sub("-", text)
+    sec = sections(text)
+    found = lambda t: [k for k, rx in SKILL_RX.items() if rx.search(t)]  # noqa: E731
+    title_skills = found(title)
+    if sec["required"].strip() or sec["preferred"].strip():
+        required = list(dict.fromkeys(title_skills + found(sec["required"])))
+        preferred = [k for k in found(sec["preferred"]) if k not in required]
+    else:
+        # No requirements heading: use the role text, never the company blurb (benefits, about us…).
+        required = title_skills
+        preferred = [k for k in found(sec["other"]) if k not in required]
+    required, preferred = required[:15], preferred[:15]
+    degree_text = sec["required"] or sec["other"]
+    degrees = [label for label, rx in DEGREE_PATTERNS if re.search(rx, degree_text, re.I)]
+    years, years_mandatory, years_excerpt = graduation_years(title, text, now)
+    family = role_family(title)
     city, state = place(location)
     rules = []
     if degrees:
-        m = re.search(r"[^.\n]*(" + "|".join(rx for _, rx in DEGREE_PATTERNS) + r")[^.\n]*", text, re.I)
+        m = re.search(r"[^.\n]*(" + "|".join(rx for _, rx in DEGREE_PATTERNS) + r")[^.\n]*", degree_text, re.I)
         rules.append({"key": "degree", "kind": "degree_in", "label": f"Degree mentioned in the posting: {', '.join(degrees)}",
                       "mandatory": False, "values": degrees, "sourceExcerpt": clean(m.group(0))[:600] if m else None,
                       "note": "The posting may also accept equivalent degrees."})
     if years:
-        m = YEAR_RX.search(text)
-        rules.append({"key": "grad_year", "kind": "graduation_year_in", "label": f"Graduating in {', '.join(map(str, years))}",
-                      "mandatory": True, "values": [str(y) for y in years], "sourceExcerpt": clean(m.group(0))[:600] if m else None})
+        rules.append({"key": "grad_year", "kind": "graduation_year_in",
+                      "label": f"Graduating in {', '.join(map(str, years))}" if years_mandatory else f"Degree completed by {years[-1]}",
+                      "mandatory": years_mandatory, "values": [str(y) for y in years],
+                      "sourceExcerpt": clean(years_excerpt)[:600] if years_excerpt else None})
     if min_years:
         m = EXP_RX.search(text)
         rules.append({"key": "experience", "kind": "self_declared",
@@ -191,7 +297,7 @@ def build(*, ats: str, board: str, job_id: str, company: str, title: str, locati
                   "label": "You meet the qualifications listed in the employer's posting", "mandatory": True,
                   "note": "SarthiAI reads only part of a job posting automatically. Read the full posting before applying."})
 
-    tags = [kind, "tech", "india"] + (["fresher"] if kind == "job" and not min_years else ["early-career"] if kind == "job" else []) + ([slug(team)[:40]] if team else [])
+    tags = [kind, "tech", "india"] + (["fresher"] if kind == "job" and not min_years else ["early-career"] if kind == "job" else []) + ([f"role-{family}"] if family else []) + ([slug(team)[:40]] if team else [])
     rec = {
         "externalId": f"{SOURCE_ID}:{ats}:{slug(board)}:{job_id}"[:300],
         "title": clean(f"{title}")[:200],
@@ -214,8 +320,8 @@ def build(*, ats: str, board: str, job_id: str, company: str, title: str, locati
         "eligibleDegrees": [],
         "eligibleYears": [],
         "eligibleBranches": [],
-        "requiredSkills": [],
-        "preferredSkills": skills,
+        "requiredSkills": required,
+        "preferredSkills": preferred,
         "location": {"city": city, "state": state, "country": "India", "isNationwide": False, "description": clean(location)[:200] or None},
         "workMode": work_mode(mode_raw, location),
         "award": None,
@@ -313,7 +419,7 @@ def ashby(fetcher, board, now):
         if not is_india(loc):
             continue
         india += 1
-        text = clean(j.get("descriptionPlain") or "") or html_to_text(j.get("descriptionHtml", ""))
+        text = html_to_text(j.get("descriptionHtml", "")) or clean(j.get("descriptionPlain") or "")  # HTML keeps headings on their own lines
         c = classify(j.get("title", ""), text, j.get("employmentType", ""))
         kind, min_years = c if c else (None, None)
         if kind:

@@ -156,6 +156,24 @@ describe('match scoring accuracy', () => {
     expect(withGoal.factors.some((f) => f.factor === 'goal')).toBe(true);
   });
 
+  it('ranks the role a student is aiming for above roles that only mention their skills', async () => {
+    const student = { degree: 'B.Tech', skills: ['Python', 'React', 'Machine Learning'], interests: ['Internships', 'AI/ML'], careerGoal: 'Become a machine learning engineer' };
+    // Real case: a design job whose description mentioned React and ML ranked first.
+    const designer = { ...base, title: 'UI/UX Designer', opportunityType: 'job', tags: ['job', 'role-design'], requiredSkills: ['UI/UX design'], preferredSkills: ['React'] };
+    const mlIntern = { ...base, title: 'Machine Learning Intern', opportunityType: 'internship', tags: ['internship', 'role-ml-ai'], requiredSkills: ['Python'], preferredSkills: ['Machine learning'] };
+    const backend = { ...base, title: 'Backend Engineer', opportunityType: 'job', tags: ['job', 'role-software'], requiredSkills: ['Python'] };
+    const s = (o) => scoreOpportunity(o, student, { now: NOW });
+    expect(s(mlIntern).score).toBeGreaterThan(s(backend).score);
+    expect(s(backend).score).toBeGreaterThan(s(designer).score);
+    expect(s(designer).factors.find((f) => f.factor === 'role')).toMatchObject({ positive: false });
+    expect(s(mlIntern).factors.find((f) => f.factor === 'role').detail).toMatch(/ML\/AI role/);
+    const { listingFamily, studentTargets } = await import('../src/matching/roles.js');
+    expect(listingFamily({ title: 'Junior Electrical Engineer ( Data Centre)', opportunityType: 'job' })).toBe('hardware');
+    expect(studentTargets({ careerGoal: 'Become a security analyst' })).toEqual(['security']);
+    // No goal or interests: role is neutral, nothing is claimed.
+    expect(scoreOpportunity(designer, { skills: ['Figma'] }, { now: NOW }).factors.some((f) => f.factor === 'role')).toBe(false);
+  });
+
   it('matches interests through concepts, not exact strings', () => {
     const opp = { ...base, title: 'Deep Learning Fellowship', opportunityType: 'fellowship', tags: ['deep learning'] };
     const r = scoreOpportunity(opp, { interests: ['AI'] }, { now: NOW });
@@ -204,6 +222,17 @@ describe('API: more results and grounded chat', () => {
     const possible = all.body.data.find((o) => o.title === 'Open Research Programme');
     expect(possible.tier).toBe('possible');
     expect(all.body.data.length).toBeGreaterThan(strict.body.data.length);
+  });
+
+  it('recommends goal-matching roles and never recommends roles that contradict the goal', async () => {
+    const ml = await registerStudent(app);
+    await setProfile(app, ml.token, { degree: 'B.Tech', currentYear: 4, skills: ['Python'], interests: ['AI/ML'], careerGoal: 'Machine learning engineer' });
+    await createOpportunity({ title: 'Machine Learning Intern', opportunityType: 'internship', tags: ['internship', 'role-ml-ai'] });
+    await createOpportunity({ title: 'UI/UX Designer', opportunityType: 'job', tags: ['job', 'role-design'], eligibleDegrees: ['B.Tech'] });
+    const res = await request(app).get('/api/matches?tier=all&limit=30').set(auth(ml.token));
+    const tierOf = (t) => res.body.data.find((o) => o.title === t)?.tier;
+    expect(tierOf('Machine Learning Intern')).toBe('recommended');   // no criterion to check, but exactly the goal
+    expect(tierOf('UI/UX Designer')).toBe('possible');               // degree matches, but wrong kind of role
   });
 
   it('answers common questions without an AI key (quick answers)', async () => {
