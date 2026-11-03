@@ -273,11 +273,13 @@ def mlh(f: Fetcher, now: datetime) -> list[dict]:
                 el = ev.select_one(f'[itemprop="{name}"]')
                 return (el.get("content") or el.get_text(" ")).strip() if el else None
             name = prop("name") or (ev.select_one("h3") or ev).get_text(" ").strip()
-            link = ev.select_one("a[href]")
-            url = link["href"] if link else None
+            # The card itself may be the link (2026 markup); itemprop="url" has no tracking parameters.
+            link = ev if ev.name == "a" and ev.get("href") else ev.select_one("a[href]")
+            url = prop("url") or (link["href"].split("?utm_")[0] if link else None)
             start, end = _iso(prop("startDate")), _iso(prop("endDate"))
+            mode = (prop("eventAttendanceMode") or "").lower()
             text = ev.get_text(" ").lower()
-            online = "digital" in text or "online" in text
+            online = "onlineevent" in mode or (not mode and ("digital" in text or "online" in text))
             city = prop("addressLocality")
             region = " ".join(x for x in [city, prop("addressRegion"), prop("addressCountry")] if x)
             missing = "no link" if not url else "no name" if not name else "no end date" if not end else None

@@ -42,6 +42,16 @@ CODEFORCES = {"status": "OK", "result": [
 ]}
 CODECHEF = {"future_contests": [{"contest_code": "START200", "contest_name": "Starters 200", "contest_start_date_iso": "2026-11-12T20:00:00+05:30",
                                  "contest_end_date_iso": "2026-11-12T22:00:00+05:30"}]}
+MLH_HTML_2026 = """<a class="block rounded-card" href="https://events.mlh.com/events/15200-solana-hackathon?utm_source=mlh&amp;utm_medium=referral"
+  itemscope itemtype="https://schema.org/Event" target="_blank">
+  <meta content="https://events.mlh.com/events/15200-solana-hackathon" itemprop="url"/>
+  <meta content="https://schema.org/OnlineEventAttendanceMode" itemprop="eventAttendanceMode"/>
+  <h3 itemprop="name">Solana Hackathon</h3><meta itemprop="startDate" content="2026-11-20"><meta itemprop="endDate" content="2026-11-22"></a>
+<a class="block rounded-card" href="https://hackprix.example/?utm_source=mlh" itemscope itemtype="https://schema.org/Event">
+  <meta content="https://hackprix.example/" itemprop="url"/>
+  <meta content="https://schema.org/OfflineEventAttendanceMode" itemprop="eventAttendanceMode"/>
+  <h3 itemprop="name">HackPrix Season 3</h3><meta itemprop="startDate" content="2026-12-01"><meta itemprop="endDate" content="2026-12-02">
+  <span itemprop="addressLocality">Toronto</span></a>"""
 MLH_HTML = """<div class="event" itemscope itemtype="http://schema.org/Event">
   <a href="https://hackwithindia.mlh.io"><h3 itemprop="name">Hack With India</h3></a>
   <meta itemprop="startDate" content="2026-12-01"><meta itemprop="endDate" content="2026-12-03">
@@ -68,7 +78,7 @@ class F:
         if "codechef" in url:
             return json.dumps(CODECHEF)
         if "mlh.io/seasons/2027" in url:
-            return MLH_HTML
+            return getattr(self, "mlh_html", MLH_HTML)
         raise ValueError("404")
 
     def post_json(self, url, body):
@@ -119,3 +129,10 @@ if __name__ == "__main__":
     sample = hackathons.devfolio(f, NOW) + hackathons.devpost(f, NOW) + hackathons.hackerearth(f, NOW) + hackathons.codeforces(f, NOW)
     Path("/tmp/claude-0/hack_sample.json").write_text(json.dumps(sample, ensure_ascii=False))
     print("ok", len(sample))
+
+
+def test_mlh_2026_markup_card_is_the_link():
+    f = F()
+    f.mlh_html = MLH_HTML_2026
+    ml = hackathons.mlh(f, NOW)
+    assert [(x["title"], x["sourceUrl"], x["workMode"]) for x in ml] == [("Solana Hackathon", "https://events.mlh.com/events/15200-solana-hackathon", "remote")]
