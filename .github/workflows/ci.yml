@@ -9,10 +9,6 @@ jobs:
   server:
     name: Server tests
     runs-on: ubuntu-latest
-    services:
-      mongo:
-        image: mongo:8
-        ports: ['27017:27017']
     defaults:
       run:
         working-directory: server
@@ -25,9 +21,8 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - run: npm ci
       - run: npm run lint
+      # Tests start a throwaway MongoDB (mongodb-memory-server); set MONGODB_TEST_URI to use an existing one.
       - run: npm test
-        env:
-          MONGODB_TEST_URI: mongodb://127.0.0.1:27017
 
   web:
     name: Web app (typecheck + build)
@@ -67,7 +62,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      # The Android SDK is preinstalled on GitHub's Ubuntu runners (ANDROID_HOME).
       - run: npm ci
       # Set the repository variable SARTHI_API_URL (e.g. https://your-sarthiai-server) to bake in your API.
       # Without it the app points at http://10.0.2.2:4000 (a dev server on the emulator's host) and can be changed in-app.

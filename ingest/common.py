@@ -119,6 +119,9 @@ class Fetcher:
                 return r.content if binary else r.text
             except requests.RequestException as e:  # noqa: PERF203
                 last_err = e
+                status = getattr(getattr(e, "response", None), "status_code", None)
+                if status is not None and 400 <= status < 500 and status != 429:
+                    break  # client errors (e.g. 404) will not succeed on retry
                 time.sleep(2 * (attempt + 1))
         raise last_err  # type: ignore[misc]
 

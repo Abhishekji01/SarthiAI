@@ -1,0 +1,59 @@
+name: Refresh data
+
+# Runs the official-source scrapers (ingest/) on GitHub's runners and commits the
+# snapshot to server/data/scraped/records.json. `npm run seed` loads it.
+on:
+  schedule:
+    - cron: '37 21 * * *'   # 03:07 IST daily
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ingest/**'
+      - '.github/workflows/refresh-data.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-data-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: ingest/requirements.txt
+      - name: Install scraper dependencies
+        run: pip install -r ingest/requirements.txt pytest
+      - name: Unit tests
+        run: cd ingest && python -m pytest -q tests
+      - name: Scrape official sources
+        run: cd ingest && python run.py | tee run.log
+      - name: Report
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, collections
+          d = json.load(open('ingest/out/records.json'))
+          print(f"## Scraped {len(d['records'])} records ({d['generatedAt']})\n")
+          c = collections.Counter(r.get('opportunityType', 'dates-only') for r in d['records'])
+          print('| type | count |\n|---|---|')
+          for k, v in c.most_common(): print(f'| {k} | {v} |')
+          print('\n| source | status | count | message |\n|---|---|---|---|')
+          for s in d['sources']: print(f"| {s['id']} | {s['status']} | {s['count']} | {s['message'][:900].replace('|', '/')} |")
+          PY
+      - name: Commit snapshot
+        run: |
+          mkdir -p server/data/scraped
+          cp ingest/out/records.json server/data/scraped/records.json
+          git config user.name "sarthiai-data-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/data/scraped/records.json
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Refresh scraped opportunities snapshot"
+          for i in 1 2 3; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break; sleep 5; done
