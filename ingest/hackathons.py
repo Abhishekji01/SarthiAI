@@ -32,6 +32,12 @@ INDIA_RX = re.compile(r"\b(india|bengaluru|bangalore|mumbai|pune|hyderabad|chenn
                       r"trichy|tiruchirappalli|warangal|bhopal|patna|ranchi|dehradun|mysuru|mysore|mangalore|thiruvananthapuram|trivandrum|goa)\b", re.I)
 
 
+NOTES: dict[str, str] = {}  # per-platform diagnostics for the run report (received vs kept)
+
+# Online events limited to one institution's students ("NYU ...", "HHS ...", "... University Hackathon").
+SINGLE_INSTITUTION_RX = re.compile(r"\b(university|college|school|institute|nyu|mit|ucla|ucsd|uc berkeley|stanford|harvard|hhs|high school)\b", re.I)
+
+
 class ShapeChanged(Exception):
     """The source answered, but not in the format this adapter understands."""
 
@@ -183,6 +189,9 @@ def devpost(f: Fetcher, now: datetime) -> list[dict]:
             online = loc.strip().lower() == "online"
             if not online and not INDIA_RX.search(loc):
                 continue
+            # An online event named after a non-Indian school/university is usually for its own students.
+            if online and SINGLE_INSTITUTION_RX.search(h.get("title", "") + " " + (h.get("organization_name") or "")) and not INDIA_RX.search(h.get("title", "") + " " + (h.get("organization_name") or "")):
+                continue
             dates = clean(h.get("submission_period_dates") or "")
             ends = _devpost_end(dates)
             prize = _text(h.get("prize_amount") or "", sep="")  # "$<span>10,000</span>" -> "$10,000"
@@ -218,6 +227,10 @@ def hackerearth(f: Fetcher, now: datetime) -> list[dict]:
     if items is None:
         raise ShapeChanged(f"hackerearth: keys {list(data)[:8] if isinstance(data, dict) else type(data).__name__}")
     out = []
+    types = {}
+    for e in items:
+        types[str(e.get("challenge_type"))] = types.get(str(e.get("challenge_type")), 0) + 1
+    NOTES["hackerearth"] = f"received {len(items)} events, types {types}"
     for e in items:
         ctype = str(e.get("challenge_type") or "").lower()
         if ctype not in ("hackathon", "competitive", "hiring"):
@@ -246,6 +259,10 @@ def mlh(f: Fetcher, now: datetime) -> list[dict]:
             continue
         soup = BeautifulSoup(page, "lxml")
         events = soup.select('[itemtype*="schema.org/Event"]') or soup.select(".event")
+        NOTES["mlh"] = f"season {season}: page {len(page)} bytes, {len(events)} event blocks"
+        if not events:
+            # Record what the page does contain so the parser can be updated.
+            NOTES["mlh"] += f", ld+json blocks {len(soup.select('script[type=\"application/ld+json\"]'))}, __NEXT_DATA__ {bool(soup.select_one('#__NEXT_DATA__'))}"
         for ev in events:
             def prop(name):
                 el = ev.select_one(f'[itemprop="{name}"]')
@@ -321,7 +338,7 @@ def run(fetcher: Fetcher, now: datetime):
         try:
             recs = fn(fetcher, now)
             records.extend(recs)
-            report.append(f"{name}={len(recs)}")
+            report.append(f"{name}={len(recs)}" + (f" [{NOTES[name]}]" if name in NOTES else ""))
         except Blocked as e:
             report.append(f"{name}=skipped (robots.txt: {str(e)[:80]})")
         except ShapeChanged as e:

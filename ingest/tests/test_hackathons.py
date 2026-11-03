@@ -28,6 +28,8 @@ DEVPOST = {"hackathons": [
     {"id": 2, "title": "SF Hack", "url": "https://sf.devpost.com/", "displayed_location": {"location": "San Francisco, CA"},
      "submission_period_dates": "Nov 01 - 30, 2026", "invite_only": False},
     {"id": 3, "title": "Private", "url": "https://p.devpost.com/", "displayed_location": {"location": "Online"}, "invite_only": True},
+    {"id": 4, "title": "2026 UXC NYU Fall Design-a-thon", "url": "https://nyu.devpost.com/", "displayed_location": {"location": "Online"}, "submission_period_dates": "Nov 01 - 30, 2026"},
+    {"id": 5, "title": "IIT Bombay Techfest Online Hack", "organization_name": "IIT Bombay", "url": "https://iitb.devpost.com/", "displayed_location": {"location": "Online"}, "submission_period_dates": "Nov 01 - 30, 2026"},
 ]}
 HACKEREARTH = {"response": [
     {"title": "Fresher Hiring Challenge", "url": "https://www.hackerearth.com/challenges/hiring/x/", "challenge_type": "hiring",
@@ -82,7 +84,7 @@ def test_each_platform_keeps_only_open_india_or_online_events():
     assert r["location"]["city"] == "New Delhi" and r["workMode"] == "onsite"
     assert "Winner" in r["award"]["description"] and {"ai", "web3", "hackathon"} <= set(r["tags"])
     dp = hackathons.devpost(f, NOW)
-    assert [x["title"] for x in dp] == ["Global AI Hackathon"]
+    assert [x["title"] for x in dp] == ["Global AI Hackathon", "IIT Bombay Techfest Online Hack"]  # NYU-only event dropped
     assert dp[0]["deadline"].startswith("2026-12-15") and dp[0]["workMode"] == "remote" and "$10,000" in dp[0]["award"]["description"]
     he = hackathons.hackerearth(f, NOW)
     assert [(x["title"], x["opportunityType"]) for x in he] == [("Fresher Hiring Challenge", "competition")]
@@ -100,7 +102,7 @@ def test_each_platform_keeps_only_open_india_or_online_events():
 
 def test_run_reports_blocked_and_changed_sources_without_failing():
     recs, msg = hackathons.run(F(blocked=("devpost",)), NOW)
-    assert "devpost=skipped (robots.txt" in msg and "devfolio=1" in msg
+    assert "devpost=skipped (robots.txt" in msg and "devfolio=1" in msg and "hackerearth=1 [received 2 events" in msg
     assert len(recs) == 1 + 1 + 1 + 1 + 1  # devfolio, hackerearth, mlh, codeforces, codechef
 
     class Changed(F):
