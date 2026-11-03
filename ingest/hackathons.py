@@ -233,7 +233,7 @@ def hackerearth(f: Fetcher, now: datetime) -> list[dict]:
     NOTES["hackerearth"] = f"received {len(items)} events, types {types}"
     for e in items:
         ctype = str(e.get("challenge_type") or "").lower()
-        if ctype not in ("hackathon", "competitive", "hiring"):
+        if ctype not in ("hackathon", "competitive", "hiring", "monthly challenges", "monthly challenge", "contest"):
             continue
         ends = _iso(e.get("end_utc_tz") or e.get("end_tz"))
         starts = _iso(e.get("start_utc_tz") or e.get("start_tz"))
@@ -249,17 +249,21 @@ def hackerearth(f: Fetcher, now: datetime) -> list[dict]:
 # ---------------------------------------------------------------------------- MLH
 
 def mlh(f: Fetcher, now: datetime) -> list[dict]:
-    out = []
-    for season in (now.year + 1, now.year):
+    out, tried = [], []
+    # MLH seasons are named by the year they end (Aug 2026 – Jul 2027 = 2027).
+    for url in (f"https://mlh.io/seasons/{now.year + 1}/events", "https://mlh.io/events", f"https://mlh.io/seasons/{now.year}/events"):
         try:
-            page = f.get(f"https://mlh.io/seasons/{season}/events")
+            page = f.get(url)
         except Blocked:
             raise
-        except Exception:  # noqa: BLE001 - season page may not exist yet
+        except Exception as e:  # noqa: BLE001 - try the next page, but say why this one failed
+            tried.append(f"{url.split('mlh.io')[1]}: {type(e).__name__} {str(e)[:60]}")
+            NOTES["mlh"] = "; ".join(tried)
             continue
+        season = url.split("mlh.io")[1]
         soup = BeautifulSoup(page, "lxml")
         events = soup.select('[itemtype*="schema.org/Event"]') or soup.select(".event")
-        NOTES["mlh"] = f"season {season}: page {len(page)} bytes, {len(events)} event blocks"
+        NOTES["mlh"] = "; ".join(tried + [f"{season}: page {len(page)} bytes, {len(events)} event blocks"])
         if not events:
             # Record what the page does contain so the parser can be updated.
             NOTES["mlh"] += f", ld+json blocks {len(soup.select('script[type=\"application/ld+json\"]'))}, __NEXT_DATA__ {bool(soup.select_one('#__NEXT_DATA__'))}"
