@@ -126,6 +126,26 @@ class Fetcher:
         raise last_err  # type: ignore[misc]
 
 
+    def post_json(self, url: str, body: dict):
+        """POST a JSON body (for search APIs that only accept POST). Same robots, throttle and retry rules as get()."""
+        if not self.allowed(url):
+            raise Blocked(f"robots.txt disallows {url}")
+        last_err: Exception | None = None
+        for attempt in range(3):
+            try:
+                self._throttle(url)
+                r = self.session.post(url, json=body, timeout=40)
+                r.raise_for_status()
+                return r.json()
+            except requests.RequestException as e:  # noqa: PERF203
+                last_err = e
+                status = getattr(getattr(e, "response", None), "status_code", None)
+                if status is not None and 400 <= status < 500 and status != 429:
+                    break
+                time.sleep(2 * (attempt + 1))
+        raise last_err  # type: ignore[misc]
+
+
 def ist_start(d: str) -> str:
     """dd-mm-yyyy -> ISO datetime at start of day IST."""
     dd, mm, yy = d.split("-")
