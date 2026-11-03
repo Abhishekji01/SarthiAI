@@ -55,8 +55,13 @@ DATE_RX = re.compile(
     rf"\b(?:(\d{{1,2}})(?:st|nd|rd|th)?[\s\-]+({MONTHS})\.?,?[\s\-]+(20\d\d)"   # 15 January 2027 / 15-Jan-2027
     rf"|({MONTHS})\.?\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(20\d\d)"                # January 15, 2027
     rf"|(\d{{1,2}})[/.-](\d{{1,2}})[/.-](20\d\d))\b", re.I)                      # 15/01/2027
-DEADLINE_WORDS = re.compile(r"last date|deadline|apply (?:by|before)|applications? (?:close|closes|due|end|ends)|closing date|"
-                            r"submission[^.]{0,20}(?:by|before|till|until)|(?:till|until)\b|registration (?:closes|ends)", re.I)
+# Strong: phrases that only ever mean an application deadline.
+DEADLINE_WORDS = re.compile(r"last date|apply (?:by|before)|applications? (?:close|closes|closed|due|end|ends)|closing date|"
+                            r"submission[^.]{0,20}(?:by|before|till|until)|registration (?:closes|ends)", re.I)
+# Weak: "deadline", "till", "until" also describe programme dates or later steps ("the programme runs until
+# July 10", "deadline for uploading photo"), so they count only in a sentence about applying.
+WEAK_DEADLINE_WORDS = re.compile(r"deadline|\b(?:till|until)\b", re.I)
+APPLY_WORDS = re.compile(r"\bappl(?:y|ying|ication|ications|icant)\b|\bregist|\bsubmi|\bnominat|\bform\b", re.I)
 # "Applications for 2026-27 will open on…", "Registration starts…", "Portal opens on…"
 OPEN_WORDS = re.compile(r"(?:applications?|portal|registrations?)\b[^.]{0,40}?\b(?:will\s+)?(?:open|opens|starts?|begins?)\b", re.I)
 
@@ -82,7 +87,9 @@ def find_dates(text: str, now: datetime) -> dict:
     """Deadline / opening dates tied to explicit words, for the current or next cycle only."""
     found = {"deadline": None, "opens": None, "deadline_quote": None, "opens_quote": None, "cycle_year_mentioned": False}
     horizon = now + timedelta(days=400)
+    prev = ""
     for s in sentences(text):
+        context, prev = prev + " " + s, s  # "Applications closed. Deadline was 30 September." spans two sentences
         if re.search(rf"\b({now.year}|{now.year + 1})\b", s):
             found["cycle_year_mentioned"] = True
         for m in DATE_RX.finditer(s):
@@ -90,7 +97,8 @@ def find_dates(text: str, now: datetime) -> dict:
             if not d or d > horizon or d < now - timedelta(days=200):
                 continue
             before = s[max(0, m.start() - 120): m.start()]
-            if DEADLINE_WORDS.search(before) and (found["deadline"] is None or d > found["deadline"]):
+            is_deadline = DEADLINE_WORDS.search(before) or (WEAK_DEADLINE_WORDS.search(before) and APPLY_WORDS.search(context))
+            if is_deadline and (found["deadline"] is None or d > found["deadline"]):
                 found["deadline"], found["deadline_quote"] = d, s[:300]
             elif OPEN_WORDS.search(before) and found["opens"] is None:
                 found["opens"], found["opens_quote"] = d, s[:300]

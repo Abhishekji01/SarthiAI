@@ -109,3 +109,16 @@ def test_scholarship_pages_mark_group_restrictions_and_quote_dates():
     assert r["declaredStatus"] == "upcoming" and not any(x["key"] == "audience" for x in r["eligibilityRules"])
     assert r["location"] == {"country": "India", "isNationwide": True} and r["award"] is None  # amounts are never hard-coded
     assert "aditya-birla=unreachable" in msg
+
+
+def test_programme_dates_and_later_steps_are_not_application_deadlines():
+    # Real sentences that were wrongly read as deadlines in the first live run.
+    surge = R.build(P, page("<p>The duration of the SURGE program is approximately 8 weeks, from May 15 until July 10, 2026.</p>"), NOW)
+    assert surge["deadline"] is None and surge["declaredStatus"] == "unknown"
+    nsf = R.build(P, page("<p>The deadline for uploading photo to NorthSouth website is June 30, 2026.</p>"), NOW)
+    assert nsf["deadline"] is None
+    # ...while real deadlines in the same styles still count.
+    ok = R.build(P, page("<p>Applications are invited till 15 January 2027.</p>"), NOW)
+    assert ok["deadline"].startswith("2027-01-15")
+    ok = R.build(P, page("<p>Deadline for submitting the application form: 20 December 2026</p>"), NOW)
+    assert ok["deadline"].startswith("2026-12-20")
