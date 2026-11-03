@@ -101,6 +101,15 @@ def html_to_text(s: str) -> str:
     return re.sub(r"\n\s*\n+", "\n\n", text).strip()
 
 
+def tidy_location(parts) -> str:
+    """Joins location strings, dropping repeats ("Bangalore, India" + "Bangalore" -> "Bangalore, India")."""
+    out = []
+    for p in (clean(x) for x in parts):
+        if p and not any(p.lower() in o.lower() for o in out):
+            out = [o for o in out if o.lower() not in p.lower()] + [p]
+    return " / ".join(out)
+
+
 def is_india(location: str) -> bool:
     return bool(INDIA_RX.search(location or ""))
 
@@ -246,7 +255,7 @@ def greenhouse(fetcher, board, now):
     company = meta.get("name") or board.title()
     out = []
     for j in data.get("jobs", []):
-        loc = (j.get("location") or {}).get("name", "") + " " + " ".join(o.get("name", "") for o in j.get("offices", []))
+        loc = tidy_location([(j.get("location") or {}).get("name", ""), *(o.get("name", "") for o in j.get("offices", []))])
         if not is_india(loc):
             continue
         india += 1
@@ -358,10 +367,14 @@ def merge_duplicates(records: list[dict]) -> list[dict]:
             by_key[key] = r
             out.append(r)
             continue
-        city = r["location"].get("city") or r["location"].get("description")
-        desc = first["location"].get("description") or first["location"].get("city") or "India"
-        if city and city.lower() not in desc.lower():
+        cities = first.setdefault("_cities", {first["location"].get("city")})
+        city = r["location"].get("city")  # normalised (Gurgaon -> Gurugram)
+        if city and city not in cities:
+            cities.add(city)
+            desc = first["location"].get("description") or first["location"].get("city") or "India"
             first["location"]["description"] = f"{desc}; also {city}"[:200]
+    for r in out:
+        r.pop("_cities", None)
     return out
 
 

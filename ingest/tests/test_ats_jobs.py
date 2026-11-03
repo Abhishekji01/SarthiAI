@@ -124,3 +124,16 @@ def test_regressions_from_full_discovery_run():
     merged = ats_jobs.merge_duplicates([a, b])
     assert len(merged) == 1 and "Pune" in merged[0]["location"]["description"]
     assert "jobgether" not in ats_jobs.boards_to_read().get("greenhouse", [])
+
+
+def test_tidy_locations():
+    assert ats_jobs.tidy_location(["Bangalore, India", "Bangalore"]) == "Bangalore, India"
+    assert ats_jobs.tidy_location(["India", "India"]) == "India"
+    a = ats_jobs.build(ats="greenhouse", board="wpp", job_id="1", company="WPP", title="Back End Engineer", location="Gurgaon India",
+                       text="", url="https://x/1", apply_url=None, kind="job", now=NOW)
+    b = ats_jobs.build(ats="greenhouse", board="wpp", job_id="2", company="WPP", title="Back End Engineer", location="Gurugram, Haryana",
+                       text="", url="https://x/2", apply_url=None, kind="job", now=NOW)
+    c = ats_jobs.build(ats="greenhouse", board="wpp", job_id="3", company="WPP", title="Back End Engineer", location="Pune",
+                       text="", url="https://x/3", apply_url=None, kind="job", now=NOW)
+    m = ats_jobs.merge_duplicates([a, b, c])
+    assert len(m) == 1 and m[0]["location"]["description"] == "Gurgaon India; also Pune" and "_cities" not in m[0]
