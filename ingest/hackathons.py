@@ -263,7 +263,7 @@ def mlh(f: Fetcher, now: datetime) -> list[dict]:
         season = url.split("mlh.io")[1]
         soup = BeautifulSoup(page, "lxml")
         events = soup.select('[itemtype*="schema.org/Event"]') or soup.select(".event")
-        skipped = {"past": 0, "not online/India": 0, "no link/name": 0}
+        skipped = {"past": 0, "not online/India": 0, "no link": 0, "no name": 0, "no end date": 0}
         before = len(out)
         if not events:
             # Record what the page does contain so the parser can be updated.
@@ -280,8 +280,9 @@ def mlh(f: Fetcher, now: datetime) -> list[dict]:
             online = "digital" in text or "online" in text
             city = prop("addressLocality")
             region = " ".join(x for x in [city, prop("addressRegion"), prop("addressCountry")] if x)
-            if not url or not name or not end:
-                skipped["no link/name"] += 1
+            missing = "no link" if not url else "no name" if not name else "no end date" if not end else None
+            if missing:
+                skipped[missing] += 1
                 continue
             if not _future(end, now):
                 skipped["past"] += 1
@@ -294,6 +295,10 @@ def mlh(f: Fetcher, now: datetime) -> list[dict]:
                               city=None if online else city, country=None if online else "India",
                               description="Major League Hacking member event."))
         tried.append(f"{season}: {len(events)} events, kept {len(out) - before}, skipped {skipped}")
+        if events and len(out) == before:
+            # Markup changed: keep a short sample of one event block so the parser can be updated.
+            sample = re.sub(r"\s+", " ", str(events[0]))[:700]
+            tried.append(f"sample: {sample}")
         NOTES["mlh"] = "; ".join(tried)
         if out:
             break
