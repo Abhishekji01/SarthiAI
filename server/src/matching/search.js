@@ -134,7 +134,7 @@ const FOCUS_FIELDS = new Set(['title', 'tags', 'type', 'organization']);
 // Query words that name a kind of opportunity act as a type requirement, not a free-text term:
 // "hackathon bangalore" must only return hackathons, even if a job description mentions hackathons.
 const TYPE_CONCEPTS = {
-  internship: ['internship'], scholarship: ['scholarship'], fellowship: ['fellowship'], job: ['job'],
+  internship: ['internship', 'research'], scholarship: ['scholarship'],  // research programmes are internships too fellowship: ['fellowship'], job: ['job'],
   hackathon: ['hackathon'], competition: ['competition', 'hackathon'],
 };
 
