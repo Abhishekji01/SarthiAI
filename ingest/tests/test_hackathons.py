@@ -46,6 +46,7 @@ MLH_HTML_2026 = """<a class="block rounded-card" href="https://events.mlh.com/ev
   itemscope itemtype="https://schema.org/Event" target="_blank">
   <meta content="https://events.mlh.com/events/15200-solana-hackathon" itemprop="url"/>
   <meta content="https://schema.org/OnlineEventAttendanceMode" itemprop="eventAttendanceMode"/>
+  <div itemprop="location" itemscope itemtype="https://schema.org/Place"><span itemprop="name">Everywhere, Worldwide</span></div>
   <h3 itemprop="name">Solana Hackathon</h3><meta itemprop="startDate" content="2026-11-20"><meta itemprop="endDate" content="2026-11-22"></a>
 <a class="block rounded-card" href="https://hackprix.example/?utm_source=mlh" itemscope itemtype="https://schema.org/Event">
   <meta content="https://hackprix.example/" itemprop="url"/>

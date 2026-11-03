@@ -269,9 +269,14 @@ def mlh(f: Fetcher, now: datetime) -> list[dict]:
             # Record what the page does contain so the parser can be updated.
             NOTES["mlh"] += f", ld+json blocks {len(soup.select('script[type=\"application/ld+json\"]'))}, __NEXT_DATA__ {bool(soup.select_one('#__NEXT_DATA__'))}"
         for ev in events:
-            def prop(name):
-                el = ev.select_one(f'[itemprop="{name}"]')
-                return (el.get("content") or el.get_text(" ")).strip() if el else None
+            def prop(name, own=True):
+                # Event properties belong to the event itself, not to nested items such as the
+                # location Place (which has its own itemprop="name", e.g. "Everywhere, Worldwide").
+                for el in ev.select(f'[itemprop="{name}"]'):
+                    scope = el.find_parent(attrs={"itemscope": True})
+                    if not own or scope is ev or scope is None:
+                        return (el.get("content") or el.get_text(" ")).strip()
+                return None
             name = prop("name") or (ev.select_one("h3") or ev).get_text(" ").strip()
             # The card itself may be the link (2026 markup); itemprop="url" has no tracking parameters.
             link = ev if ev.name == "a" and ev.get("href") else ev.select_one("a[href]")
@@ -280,8 +285,8 @@ def mlh(f: Fetcher, now: datetime) -> list[dict]:
             mode = (prop("eventAttendanceMode") or "").lower()
             text = ev.get_text(" ").lower()
             online = "onlineevent" in mode or (not mode and ("digital" in text or "online" in text))
-            city = prop("addressLocality")
-            region = " ".join(x for x in [city, prop("addressRegion"), prop("addressCountry")] if x)
+            city = prop("addressLocality", own=False)
+            region = " ".join(x for x in [city, prop("addressRegion", own=False), prop("addressCountry", own=False)] if x)
             missing = "no link" if not url else "no name" if not name else "no end date" if not end else None
             if missing:
                 skipped[missing] += 1
