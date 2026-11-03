@@ -34,19 +34,20 @@ PROGRAMS = [
     {"key": "tifr-vsrp", "name": "Visiting Students' Research Programme (VSRP)", "org": "Tata Institute of Fundamental Research",
      "url": "https://vsrp.tifr.res.in/", "city": "Mumbai", "state": "Maharashtra", "tags": ["summer", "research"]},
     {"key": "jncasr-srfp", "name": "Summer Research Fellowship Programme (SRFP)", "org": "JNCASR",
-     "url": "https://www.jncasr.ac.in/fe/srfp", "city": "Bengaluru", "state": "Karnataka", "tags": ["summer", "research"]},
+     "url": "https://www.jncasr.ac.in/academic/fandeprogrammes/srfp/", "fallbacks": ["https://www.jncasr.ac.in/fandeprogrammes"], "city": "Bengaluru", "state": "Karnataka", "tags": ["summer", "research"]},
     {"key": "niti-internship", "name": "NITI Aayog Internship Scheme", "org": "NITI Aayog, Government of India",
-     "url": "https://www.niti.gov.in/internship", "city": "New Delhi", "state": "Delhi", "tags": ["government", "policy"]},
+     "url": "https://www.niti.gov.in/internship", "fallbacks": ["https://internship.niti.gov.in/"], "city": "New Delhi", "state": "Delhi", "tags": ["government", "policy"]},
     {"key": "mitacs-globalink", "name": "Mitacs Globalink Research Internship", "org": "Mitacs (Canada)",
      "url": "https://www.mitacs.ca/our-programs/globalink-research-internship-students/", "country": "Canada", "tags": ["international", "summer"]},
     {"key": "daad-wise", "name": "DAAD WISE Scholarship (Working Internships in Science and Engineering)", "org": "DAAD (Germany)",
-     "url": "https://www.daad.in/en/find-funding/scholarship-database/wise/", "country": "Germany", "tags": ["international", "summer"]},
-    {"key": "charpak-research", "name": "Charpak Research Internship Programme", "org": "Embassy of France in India / Campus France",
-     "url": "https://www.inde.campusfrance.org/charpak-research-internship-programme", "country": "France", "tags": ["international", "summer"]},
+     "url": "https://daad.de/go/en/stipa50015295", "country": "Germany", "tags": ["international", "summer"]},
+    {"key": "charpak-research", "name": "France Excellence Charpak Summer Training Scholarship (research internship)", "org": "Embassy of France in India / Campus France",
+     "url": "https://www.inde.campusfrance.org/node/96", "country": "France", "tags": ["international", "summer"]},
     {"key": "iusstf-snbose", "name": "S.N. Bose Scholars Program", "org": "IUSSTF (Indo-U.S. Science and Technology Forum)",
-     "url": "https://www.iusstf.org/program/sn-bose-scholars-program", "country": "United States", "tags": ["international", "summer"]},
+     "url": "https://iusstf.org/s-n-bose-scholars-program", "country": "United States", "tags": ["international", "summer"]},
     {"key": "iusstf-khorana", "name": "Khorana Program for Scholars", "org": "IUSSTF (Indo-U.S. Science and Technology Forum)",
-     "url": "https://www.iusstf.org/program/khorana-program-for-scholars", "country": "United States", "tags": ["international", "summer"]},
+     "url": "https://iusstf.org/khorana-program-for-scholars", "fallbacks": ["https://dbtindia.gov.in/khorana-programs-scholars"],
+     "country": "United States", "tags": ["international", "summer", "biotech"]},
 ]
 
 MONTHS = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
@@ -167,17 +168,38 @@ def build_page(p: dict, html: str, now: datetime, *, source_id: str, kind: str, 
     return rec
 
 
+def _why(e: Exception) -> str:
+    status = getattr(getattr(e, "response", None), "status_code", None)
+    if isinstance(e, Blocked):
+        return "robots.txt disallows"
+    if status in (401, 403, 451):
+        return f"refused automated access (HTTP {status})"
+    if status:
+        return f"HTTP {status}"
+    if "SSL" in type(e).__name__ or "SSL" in str(e):
+        return "site's HTTPS certificate is invalid (not bypassed)"
+    return f"unreachable ({type(e).__name__})"
+
+
+def fetch_first(fetcher: Fetcher, p: dict):
+    """Official page first, then official fallbacks. Returns (html, url_used, reason_if_none)."""
+    reasons = []
+    for url in [p["url"], *p.get("fallbacks", [])]:
+        try:
+            return fetcher.get(url), url, None
+        except Exception as e:  # noqa: BLE001 - try the next official address
+            reasons.append(_why(e))
+    return None, None, " / ".join(reasons)
+
+
 def run(fetcher: Fetcher, now: datetime):
     records, report = [], []
     for p in PROGRAMS:
-        try:
-            html = fetcher.get(p["url"])
-        except Blocked:
-            report.append(f"{p['key']}=robots")
+        html, used, why = fetch_first(fetcher, p)
+        if html is None:
+            report.append(f"{p['key']}={why}")
             continue
-        except Exception as e:  # noqa: BLE001 - one page never stops the rest
-            report.append(f"{p['key']}=unreachable ({type(e).__name__})")
-            continue
+        p = {**p, "url": used}
         rec = build(p, html, now)
         records.append(rec)
         report.append(f"{p['key']}={rec['declaredStatus']}" + (f" until {rec['deadline'][:10]}" if rec.get("deadline") else ""))

@@ -55,7 +55,27 @@ def test_run_reports_unreachable_and_blocked_pages():
                 raise Blocked("robots")
             raise ValueError("404")
     recs, msg = R.run(F(), NOW)
-    assert len(recs) == 1 and "iitk-surge=open until 2027-01-15" in msg and "iitr-spark=robots" in msg and "iitm-sfp=unreachable" in msg
+    assert len(recs) == 1 and "iitk-surge=open until 2027-01-15" in msg and "iitr-spark=robots.txt disallows" in msg and "iitm-sfp=unreachable" in msg
+
+
+def test_fallback_address_and_status_codes_are_reported():
+    import requests
+
+    def err(code):
+        r = requests.Response(); r.status_code = code
+        return requests.HTTPError(response=r)
+
+    class F:
+        def get(self, url, **_):
+            if url == "https://www.niti.gov.in/internship":
+                raise err(403)
+            if url == "https://internship.niti.gov.in/":
+                return page("<p>Applications are open from 1st to 10th of every month. Last date: 10 December 2026.</p>")
+            raise err(404)
+    recs, msg = R.run(F(), NOW)
+    niti = next(r for r in recs if r["externalId"] == "research:niti-internship")
+    assert niti["sourceUrl"] == "https://internship.niti.gov.in/" and niti["deadline"].startswith("2026-12-10")
+    assert "iitk-surge=HTTP 404" in msg
 
 
 if __name__ == "__main__":

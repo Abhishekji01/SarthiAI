@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from common import Blocked, Fetcher
-from research_programs import build_page
+from common import Fetcher
+from research_programs import build_page, fetch_first
 
 SOURCE_ID = "scholarship"
 
@@ -29,12 +29,12 @@ PAGES = [
     {"key": "nsf-india", "name": "North South Foundation Scholarships (India)", "org": "North South Foundation",
      "url": "https://www.northsouth.org/public/scholarships", "tags": ["need-based", "merit"]},
     {"key": "sitaram-jindal", "name": "Sitaram Jindal Foundation Scholarship", "org": "Sitaram Jindal Foundation",
-     "url": "https://www.sitaramjindalfoundation.org/scholarships-for-students-in-india.php", "tags": ["need-based"]},
+     "url": "https://www.sitaramjindalfoundation.org/", "tags": ["need-based"]},
     {"key": "generation-google-apac", "name": "Generation Google Scholarship (Asia Pacific)", "org": "Google",
      "url": "https://buildyourfuture.withgoogle.com/scholarships/generation-google-scholarship-apac",
      "audience": "students who identify as women, studying computer science or a related field", "tags": ["computer science", "women in tech"]},
     {"key": "kotak-kanya", "name": "Kotak Kanya Scholarship", "org": "Kotak Education Foundation",
-     "url": "https://kotakeducation.org/kotak-kanya-scholarship/", "audience": "girl students", "tags": ["professional courses", "girls"]},
+     "url": "https://kotakeducation.org/kotak-kanya-scholarship/", "fallbacks": ["https://www.kotakeducation.org/kotak-kanya-scholarship/"], "audience": "girl students", "tags": ["professional courses", "girls"]},
     {"key": "santoor", "name": "Santoor Women's Scholarship", "org": "Wipro Consumer Care & Wipro Cares",
      "url": "https://www.santoorscholarships.com/", "audience": "girl students from the states named on the official page", "tags": ["girls"]},
     {"key": "vidyasaarathi", "name": "Vidyasaarathi corporate scholarships portal", "org": "NSDL e-Governance (Protean)",
@@ -45,15 +45,11 @@ PAGES = [
 def run(fetcher: Fetcher, now: datetime):
     records, report = [], []
     for p in PAGES:
-        p = {**p, "country": "India"}
-        try:
-            html = fetcher.get(p["url"])
-        except Blocked:
-            report.append(f"{p['key']}=robots")
+        html, used, why = fetch_first(fetcher, p)
+        if html is None:
+            report.append(f"{p['key']}={why}")
             continue
-        except Exception as e:  # noqa: BLE001
-            report.append(f"{p['key']}=unreachable ({type(e).__name__})")
-            continue
+        p = {**p, "country": "India", "url": used}
         rec = build_page(p, html, now, source_id=SOURCE_ID, kind="scholarship", base_tags=["scholarship", "private"],
                          eligibility_label="You meet the scholarship's eligibility (course, year, marks, family income) on its official page",
                          source_type="official_org_site")
