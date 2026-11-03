@@ -66,7 +66,7 @@ export interface Opportunity {
   searchMatch?: { relevance: number; matchedTerms: string[]; approximate: boolean };
 }
 
-export interface PageMeta { page: number; limit: number; total: number; totalPages: number; search?: { relaxed: boolean; terms: string[]; closedMatches?: number } }
+export interface PageMeta { page: number; limit: number; total: number; totalPages: number; search?: { relaxed: boolean; terms: string[]; closedMatches?: number; hiddenMentions?: number } }
 
 export interface Criterion {
   key: string; kind: string; requirement: string; mandatory: boolean; studentValue: string | null;

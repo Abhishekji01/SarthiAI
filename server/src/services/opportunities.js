@@ -105,8 +105,8 @@ export async function searchOpportunities(user, q, now = new Date()) {
   let textMeta = null;
   const relevanceById = new Map();
   if (q.q) {
-    const ranked = rankByQuery(docs, q.q);
-    textMeta = { relaxed: ranked.relaxed, terms: ranked.terms };
+    const ranked = rankByQuery(docs, q.q, { includeMentions: q.mentions });
+    textMeta = { relaxed: ranked.relaxed, terms: ranked.terms, hiddenMentions: ranked.hiddenMentions };
     // Nothing open matched: tell the client how many closed listings did, so it can offer them.
     if (!ranked.results.length && !q.includeClosed && !q.availability) {
       const closed = allDocs.filter((o) => computeAvailability(o, now) === 'closed');

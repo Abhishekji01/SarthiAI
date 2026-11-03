@@ -28,6 +28,7 @@ export function Discover() {
     verifiedOnly: params.get('verifiedOnly') === 'true' || undefined,
     includeClosed: params.get('includeClosed') === 'true' || undefined,
     campusOnly: params.get('campusOnly') === 'true' || undefined,
+    mentions: params.get('mentions') === 'true' || undefined,
     deadlineWithinDays: params.get('within') ? Number(params.get('within')) : undefined,
   };
   const key = params.toString();
@@ -54,7 +55,7 @@ export function Discover() {
   // Debounced search-as-you-type.
   useEffect(() => {
     const t = setTimeout(() => {
-      if ((params.get('q') ?? '') !== text.trim()) update({ q: text.trim() || null });
+      if ((params.get('q') ?? '') !== text.trim()) update({ q: text.trim() || null, mentions: null });
     }, 350);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -121,6 +122,12 @@ export function Discover() {
         )}
         <div className="stack">{items.map((o) => <OpportunityRow key={o.id} o={o} />)}</div>
         {loading && items.length > 0 && <div style={{ marginTop: 12 }}><Skeleton count={1} /></div>}
+        {!loading && meta && !error && (meta.search?.hiddenMentions ?? 0) > 0 && meta.page >= meta.totalPages && (
+          <div className="card soft row" style={{ marginTop: 12 }}>
+            <span className="grow small">{meta.search!.hiddenMentions} more listing{meta.search!.hiddenMentions === 1 ? '' : 's'} mention “{query.q}” in the description but aren’t mainly about it.</span>
+            <button className="btn small secondary" onClick={() => update({ mentions: 'true' })}>Show</button>
+          </div>
+        )}
         <div ref={sentinel} />
         <p className="tiny faint" style={{ marginTop: 20 }}>Every listing links to its official source. Match scores are heuristic, not selection chances.</p>
       </div>

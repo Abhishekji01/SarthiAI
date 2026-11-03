@@ -125,17 +125,25 @@ function wordMatch(term, tokens) {
   return best;
 }
 
+// Related-concept credit only where the listing states its focus; long descriptions mention
+// everything, so counting related terms there would make every listing match.
+const RELATED_FIELDS = new Set(['title', 'tags', 'skills', 'type']);
+
+const FOCUS_FIELDS = new Set(['title', 'tags', 'type', 'organization']);
+
 function groupMatch(group, fields) {
   let best = 0;
   let via = null;
+  let focus = false;
   for (const [name, f] of Object.entries(fields)) {
     const fw = FIELD_WEIGHTS[name];
     let m = 0;
     let how = null;
     if (group.kind === 'concept') {
-      if (f.concepts.has(group.id) || f.tokens.has(group.id)) { m = 1; how = 'exact'; } else {
+      // Concepts come from whole words/phrases (not stems), so "react" never matches "reacting".
+      if (f.concepts.has(group.id)) { m = 1; how = 'exact'; } else if (RELATED_FIELDS.has(name)) {
         for (const [rid, w] of group.related) {
-          if (f.concepts.has(rid) && w * 0.6 > m) { m = w * 0.6; how = 'related'; }
+          if (f.concepts.has(rid) && w * 0.3 > m) { m = w * 0.3; how = 'related'; }  // below any exact mention
         }
       }
     } else {
@@ -143,15 +151,19 @@ function groupMatch(group, fields) {
       how = m === 1 ? 'exact' : m ? 'approximate' : null;
     }
     if (m * fw > best) { best = m * fw; via = how; }
+    if (m > 0 && FOCUS_FIELDS.has(name)) focus = true;
   }
-  return { score: best, via };
+  return { score: best, via, focus };
 }
 
 /**
  * Ranks `docs` for query `q`.
  * Returns { results: [{ doc, relevance (0..1), matchedTerms, approximate }], relaxed, terms }.
  */
-export function rankByQuery(docs, q) {
+/** Minimum number of listings that are about the topic before mere mentions are held back. */
+const FOCUS_MIN = 5;
+
+export function rankByQuery(docs, q, { includeMentions = false } = {}) {
   const groups = parseQuery(q);
   if (!groups.length) return { results: docs.map((doc) => ({ doc, relevance: 0, matchedTerms: [], approximate: false })), relaxed: false, terms: [] };
 
@@ -171,6 +183,7 @@ export function rankByQuery(docs, q) {
     return {
       doc,
       hit,
+      focus: matches.every((m) => m.score === 0 || m.focus),
       relevance: Math.min(1, raw / maxPossible),
       matchedTerms: groups.filter((_, gi) => matches[gi].score > 0).map((g) => g.label),
       approximate: matches.some((m) => m.via && m.via !== 'exact'),
@@ -184,8 +197,16 @@ export function rankByQuery(docs, q) {
     results = scored.filter((s) => s.hit >= need);
     relaxed = results.length > 0;
   }
+  // Long descriptions mention many topics ("AI/ML is a plus"). When enough listings are actually
+  // about the query (title, tags, type, organisation), show those and report the rest as mentions.
+  let hiddenMentions = 0;
+  const focused = results.filter((r) => r.focus);
+  if (!includeMentions && focused.length >= FOCUS_MIN) {
+    hiddenMentions = results.length - focused.length;
+    results = focused;
+  }
   results.sort((a, b) => b.relevance - a.relevance);
-  return { results: results.map(({ hit, ...r }) => r), relaxed, terms: groups.map((g) => g.label) };
+  return { results: results.map(({ hit, focus, ...r }) => r), relaxed, terms: groups.map((g) => g.label), hiddenMentions };
 }
 
 /** Shared token helper for other modules (e.g. goal similarity). */

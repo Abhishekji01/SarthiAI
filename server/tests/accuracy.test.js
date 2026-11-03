@@ -53,6 +53,33 @@ describe('ranked search', () => {
     expect(ids('scholarships for girls')).toEqual([2]);
   });
 
+  it('keeps topic searches precise on long real-world descriptions', () => {
+    const long = (extra) => ` We build software. Experience with data analysis, AI tools, Excel and dashboards is a plus. ${extra}`;
+    const jobs = [
+      { _id: 'ml', title: 'Machine Learning Intern', organization: 'A', opportunityType: 'internship', officialDescription: long('') },
+      { _id: 'be', title: 'Backend Engineer', organization: 'B', opportunityType: 'job', officialDescription: long('You will be reacting quickly to customer needs.') },
+      { _id: 'rn', title: 'Mobile Developer', organization: 'C', opportunityType: 'job', officialDescription: long('We use React Native.') },
+      { _id: 'ai', title: 'AI Engineer', organization: 'D', opportunityType: 'job', officialDescription: long('') },
+    ];
+    // Related concepts count in titles (AI Engineer), not because a description mentions "AI tools".
+    expect(rankByQuery(jobs, 'machine learning').results.map((r) => r.doc._id)).toEqual(['ml', 'ai']);
+    expect(rankByQuery(jobs, 'react').results.map((r) => r.doc._id)).toEqual(['rn']);
+    // A related title (Frontend → React) still appears, but below a listing that names React.
+    const fe = { _id: 'fe', title: 'Frontend Engineer', organization: 'E', opportunityType: 'job', officialDescription: long('') };
+    expect(rankByQuery([fe, ...jobs], 'react').results.map((r) => r.doc._id)).toEqual(['rn', 'fe']);
+  });
+
+  it('holds back mere mentions when enough listings are about the topic', () => {
+    const about = Array.from({ length: 5 }, (_, i) => ({ _id: `a${i}`, title: `Machine Learning Engineer ${i}`, organization: 'X', opportunityType: 'job' }));
+    const mention = { _id: 'm', title: 'Backend Engineer', organization: 'Y', opportunityType: 'job', officialDescription: 'Experience with ML is a plus.' };
+    const r = rankByQuery([...about, mention], 'machine learning');
+    expect(r.results.map((x) => x.doc._id)).not.toContain('m');
+    expect(r.hiddenMentions).toBe(1);
+    expect(rankByQuery([...about, mention], 'machine learning', { includeMentions: true }).results.map((x) => x.doc._id)).toContain('m');
+    // With few focused listings, mentions are still shown (more results).
+    expect(rankByQuery([about[0], mention], 'machine learning').results).toHaveLength(2);
+  });
+
   it('relaxes to related results instead of returning nothing', () => {
     const r = rankByQuery(docs, 'isro satellite quantum');
     expect(r.relaxed).toBe(true);

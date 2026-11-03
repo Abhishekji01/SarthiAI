@@ -98,6 +98,8 @@ export const opportunityQuerySchema = z.object({
   verifiedOnly: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
   deadlineWithinDays: z.coerce.number().int().min(1).max(365).optional(),
   campusOnly: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
+  // Also include listings that only mention the search terms in their description.
+  mentions: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
   sort: z.enum(['relevance', 'deadline', 'recent']).default('relevance'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
