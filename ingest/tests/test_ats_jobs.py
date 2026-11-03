@@ -81,3 +81,34 @@ if __name__ == "__main__":
     test_extracts_facts_from_the_posting_only()
     Path("/tmp/claude-0/ats_sample.json").write_text(json.dumps(records(), ensure_ascii=False))
     print("ok", len(records()))
+
+
+def test_regressions_from_first_real_run():
+    # "Staff Engineer I" matched the entry-level pattern; senior words must always win.
+    assert ats_jobs.classify("Staff Engineer I", "") is None
+    assert ats_jobs.classify("Staff Engineer 1 – Salesforce AI", "freshers") is None
+    # Bare "analyst" is not a tech role.
+    assert ats_jobs.classify("Business Support Analyst (LMS Admin)", "0-1 years") is None
+    assert ats_jobs.classify("Data Analyst", "0-1 years of experience") == "job"
+    assert ats_jobs.company_name("Rubrik Job Board") == "Rubrik"
+    assert ats_jobs.company_name("HackerRank Careers") == "HackerRank"
+
+
+def test_smartrecruiters_uses_structured_experience_level():
+    listing = {"totalFound": 3, "content": [
+        {"id": "1", "name": "Software Engineer - Graduate", "company": {"name": "Visa"}, "location": {"city": "Bengaluru", "country": "in"},
+         "experienceLevel": {"id": "entry_level"}, "typeOfEmployment": {"label": "Full-time"}, "releasedDate": "2026-10-20T00:00:00Z"},
+        {"id": "2", "name": "Machine Learning Intern", "company": {"name": "Visa"}, "location": {"city": "Pune", "country": "in"},
+         "experienceLevel": {"id": "internship"}, "typeOfEmployment": {"label": "Intern"}},
+        {"id": "3", "name": "Software Engineer", "company": {"name": "Visa"}, "location": {"city": "Pune", "country": "in"},
+         "experienceLevel": {"id": "mid_senior_level"}},
+    ]}
+    detail = {"postingUrl": "https://jobs.smartrecruiters.com/Visa/1", "jobAd": {"sections": {"jobDescription": {"text": "<p>Python, SQL</p>"}, "qualifications": {"text": "<p>B.Tech, graduating in 2026</p>"}}}}
+
+    class F:
+        def get(self, url, **_):
+            return json.dumps(detail if "/postings/" in url else listing)
+
+    recs = ats_jobs.smartrecruiters(F(), "Visa", NOW)
+    assert [(r["title"], r["opportunityType"]) for r in recs] == [("Software Engineer - Graduate", "job"), ("Machine Learning Intern", "internship")]
+    assert recs[0]["organization"] == "Visa" and recs[0]["location"]["city"] == "Bengaluru"

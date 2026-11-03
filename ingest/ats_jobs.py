@@ -1,6 +1,6 @@
 """Internships and fresher jobs for tech students, from employers' own job boards.
 
-Reads the public job-board APIs of Greenhouse, Lever and Ashby — the endpoints
+Reads the public job-board APIs of Greenhouse, Lever, Ashby and SmartRecruiters — the endpoints
 those systems publish so employers' postings can be listed by job sites. Only
 postings that are all of:
   - located in India (or remote within India),
@@ -41,7 +41,7 @@ INTERN_RX = re.compile(r"\b(intern|interns|internship|trainee|apprentice(ship)?|
 ENTRY_TITLE_RX = re.compile(
     r"\b(new grad(uate)?|graduate|fresher|freshers|entry[- ]level|junior|jr\.?|early career|campus|university|"
     r"associate (software|engineer|developer|data|ml|qa|sde)|software (development )?engineer\s*(i|1)\b|sde\s*-?\s*(i|1)\b|"
-    r"engineer\s*(i|1)\b|developer\s*(i|1)\b|analyst\s*(i|1)\b|graduate engineer trainee)", re.I)
+    r"engineer\s*(i|1)\b|developer\s*(i|1)\b|(data|security|systems) analyst\b|graduate engineer trainee)", re.I)
 ENTRY_TEXT_RX = re.compile(
     r"\b(0\s*(-|–|to)\s*[12]\+?\s*years?|freshers?|recent(ly)? graduat\w*|new graduates?|"
     r"(graduating|graduation|pass(ing)?[- ]out|batch)\s*(year|in|of)?\s*:?\s*20(2[5-9]|3[0-1]))", re.I)
@@ -52,7 +52,7 @@ EXPERIENCE_RX = re.compile(r"\b([3-9]|1\d)\s*\+?\s*(-|–|to)?\s*\d*\s*\+?\s*yea
 TECH_RX = re.compile(
     r"\b(software|engineer|engineering|developer|sde|swe|programmer|data|machine learning|ml|ai|artificial intelligence|"
     r"deep learning|nlp|computer vision|research|security|cyber|devops|sre|site reliability|cloud|platform|infrastructure|backend|"
-    r"back-end|frontend|front-end|full[- ]?stack|android|ios|mobile|qa|test|automation|analytics|analyst|scientist|"
+    r"back-end|frontend|front-end|full[- ]?stack|android|ios|mobile|qa|test|automation|analytics|scientist|"
     r"embedded|firmware|hardware|vlsi|asic|fpga|silicon|network|systems|database|product design|ui|ux|technical|tech|"
     r"solutions engineer|support engineer)\b", re.I)
 
@@ -81,6 +81,12 @@ DEGREE_PATTERNS = [
 YEAR_RX = re.compile(r"(?:graduating|graduation|pass(?:ing)?[- ]?out|batch|class)\s*(?:year|in|of)?\s*:?\s*((?:20(?:2[5-9]|3[01])(?:\s*(?:,|/|&|and|or)\s*)?)+)", re.I)
 
 
+def company_name(raw: str) -> str:
+    """'Rubrik Job Board' / 'HackerRank Careers' -> 'Rubrik' / 'HackerRank'."""
+    name = re.sub(r"\s*[-–|:]?\s*\b(job board|jobs?|careers?|career site|hiring|recruiting|talent)\b\.?\s*$", "", clean(raw), flags=re.I)
+    return name or clean(raw)
+
+
 def html_to_text(s: str) -> str:
     if not s:
         return ""
@@ -105,7 +111,7 @@ def classify(title: str, text: str, employment: str = "") -> str | None:
     if INTERN_RX.search(title) or re.search(r"intern", employment or "", re.I):
         return "internship"
     title_wo_numbers = re.sub(r"20\d\d", "", title)
-    if SENIOR_RX.search(title_wo_numbers) and not ENTRY_TITLE_RX.search(title):
+    if SENIOR_RX.search(title_wo_numbers):
         return None
     head = text[:6000]
     if ENTRY_TITLE_RX.search(title) or ENTRY_TEXT_RX.search(head):
@@ -159,7 +165,7 @@ def build(*, ats: str, board: str, job_id: str, company: str, title: str, locati
     rec = {
         "externalId": f"{SOURCE_ID}:{ats}:{slug(board)}:{job_id}"[:300],
         "title": clean(f"{title}")[:200],
-        "organization": clean(company)[:160],
+        "organization": company_name(company)[:160],
         "opportunityType": kind,
         "officialDescription": text[:3900] or None,
         "sourceUrl": url,
@@ -221,6 +227,7 @@ def greenhouse(fetcher, board, now):
         loc = (j.get("location") or {}).get("name", "") + " " + " ".join(o.get("name", "") for o in j.get("offices", []))
         if not is_india(loc):
             continue
+        _saw_india()
         text = html_to_text(j.get("content", ""))
         kind = classify(j.get("title", ""), text)
         if kind:
@@ -240,6 +247,7 @@ def lever(fetcher, board, now):
         loc = " ".join([cat.get("location") or "", *(cat.get("allLocations") or []), j.get("country") or ""])
         if not is_india(loc) and (j.get("country") or "").upper() != "IN":
             continue
+        _saw_india()
         lists = "\n".join(f"{l.get('text', '')}\n{html_to_text(l.get('content', ''))}" for l in j.get("lists", []))
         text = clean(j.get("descriptionPlain") or "") + "\n\n" + lists + "\n\n" + clean(j.get("additionalPlain") or "")
         kind = classify(j.get("text", ""), text, cat.get("commitment", ""))
@@ -269,6 +277,7 @@ def ashby(fetcher, board, now):
         loc = " / ".join(x for x in locs if x) + (f" ({addr})" if addr else "")
         if not is_india(loc):
             continue
+        _saw_india()
         text = clean(j.get("descriptionPlain") or "") or html_to_text(j.get("descriptionHtml", ""))
         kind = classify(j.get("title", ""), text, j.get("employmentType", ""))
         if kind:
@@ -281,7 +290,68 @@ def ashby(fetcher, board, now):
     return out
 
 
-READERS = {"greenhouse": greenhouse, "lever": lever, "ashby": ashby}
+class Found(list):
+    """List of records that also carries how many India postings the board had (for the run report)."""
+    india = 0
+
+
+def counted(reader):
+    def wrapped(fetcher, board, now):
+        global _INDIA
+        _INDIA = 0
+        out = reader(fetcher, board, now)
+        if out is None:
+            return None
+        res = Found(out)
+        res.india = _INDIA
+        return res
+    return wrapped
+
+
+_INDIA = 0
+
+
+def _saw_india():
+    global _INDIA
+    _INDIA += 1
+
+
+def smartrecruiters(fetcher, board, now):
+    """SmartRecruiters public Posting API: filtered to India; experience level is structured."""
+    out, offset = [], 0
+    while True:
+        data = _json(fetcher, f"https://api.smartrecruiters.com/v1/companies/{board}/postings?country=in&limit=100&offset={offset}")
+        if data is None:
+            return None
+        content = data.get("content") or []
+        for j in content:
+            _saw_india()
+            title = j.get("name", "")
+            level = ((j.get("experienceLevel") or {}).get("id") or "").lower()
+            emp = ((j.get("typeOfEmployment") or {}).get("label") or "")
+            if level not in ("internship", "entry_level") and not INTERN_RX.search(title) and not re.search(r"intern", emp, re.I):
+                continue
+            if not TECH_RX.search(title) or SENIOR_RX.search(re.sub(r"20\d\d", "", title)):
+                continue
+            detail = _json(fetcher, f"https://api.smartrecruiters.com/v1/companies/{board}/postings/{j['id']}") or {}
+            sections = ((detail.get("jobAd") or {}).get("sections") or {})
+            text = "\n\n".join(html_to_text((sections.get(k) or {}).get("text", "")) for k in ("jobDescription", "qualifications", "additionalInformation"))
+            kind = "internship" if (level == "internship" or INTERN_RX.search(title) or re.search(r"intern", emp, re.I)) else "job"
+            loc = j.get("location") or {}
+            loc_text = ", ".join(x for x in [loc.get("city"), loc.get("region"), "India"] if x)
+            url = detail.get("postingUrl") or f"https://jobs.smartrecruiters.com/{board}/{j['id']}"
+            company = (j.get("company") or {}).get("name") or board
+            out.append(build(ats="smartrecruiters", board=board, job_id=str(j["id"]), company=company, title=title, location=loc_text,
+                             text=text.strip(), url=url, apply_url=detail.get("applyUrl"), kind=kind, now=now,
+                             mode_raw="remote" if loc.get("remote") else ("hybrid" if loc.get("hybrid") else ""),
+                             posted=j.get("releasedDate"), team=(j.get("department") or {}).get("label") or (j.get("function") or {}).get("label")))
+        offset += len(content)
+        if not content or offset >= min(int(data.get("totalFound") or 0), 400):
+            break
+    return out
+
+
+READERS = {"greenhouse": counted(greenhouse), "lever": counted(lever), "ashby": counted(ashby), "smartrecruiters": counted(smartrecruiters)}
 
 
 def run(fetcher: Fetcher, now: datetime):
@@ -299,11 +369,12 @@ def run(fetcher: Fetcher, now: datetime):
             if recs is None:
                 missing.append(f"{ats}/{board}")
                 continue
+            india = getattr(recs, "india", None)
             recs = [r for r in recs if r["externalId"] not in seen_ids][:MAX_PER_BOARD]
             seen_ids.update(r["externalId"] for r in recs)
-            found.append(f"{ats}/{board}={len(recs)}")
+            found.append(f"{ats}/{board}={len(recs)}" + (f"/{india}" if india is not None else ""))
             records.extend(recs)
     interns = sum(r["opportunityType"] == "internship" for r in records)
     msg = (f"{len(records)} India tech roles ({interns} internships, {len(records) - interns} entry-level jobs) from {len(found)} boards. "
-           f"Boards: {', '.join(found)}. Not found: {', '.join(missing) or 'none'}. Errors: {', '.join(errors) or 'none'}")
+           f"Boards (kept/India postings): {', '.join(found)}. Not found: {', '.join(missing) or 'none'}. Errors: {', '.join(errors) or 'none'}")
     return records, msg
