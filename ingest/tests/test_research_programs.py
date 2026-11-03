@@ -67,3 +67,25 @@ if __name__ == "__main__":
               R.build(R.PROGRAMS[8], page("<p>Dates to be announced.</p>"), NOW)]
     Path("/tmp/claude-0/research_sample.json").write_text(json.dumps(sample))
     print("ok")
+
+
+def test_scholarship_pages_mark_group_restrictions_and_quote_dates():
+    import scholarship_pages as S
+
+    class F:
+        def get(self, url, **_):
+            if "kotak" in url:
+                return page("<p>Kotak Kanya Scholarship 2026-27. Last date to apply: 30th November 2026.</p>")
+            if "reliance" in url:
+                return page("<p>Applications for 2026-27 will open on 1 December 2026.</p>")
+            raise ValueError("404")
+    recs, msg = S.run(F(), NOW)
+    by = {r["externalId"]: r for r in recs}
+    k = by["scholarship:kotak-kanya"]
+    assert k["opportunityType"] == "scholarship" and k["declaredStatus"] == "open" and "30th November 2026" in k["deadlineNote"]
+    assert k["eligibilityRules"][0] == {**k["eligibilityRules"][0], "key": "audience", "restrictsAudience": True, "mandatory": True}
+    assert k["eligibilityRules"][0]["label"] == "Girl students"
+    r = by["scholarship:reliance-ug"]
+    assert r["declaredStatus"] == "upcoming" and not any(x["key"] == "audience" for x in r["eligibilityRules"])
+    assert r["location"] == {"country": "India", "isNationwide": True} and r["award"] is None  # amounts are never hard-coded
+    assert "aditya-birla=unreachable" in msg

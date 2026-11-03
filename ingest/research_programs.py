@@ -56,7 +56,8 @@ DATE_RX = re.compile(
     rf"|(\d{{1,2}})[/.-](\d{{1,2}})[/.-](20\d\d))\b", re.I)                      # 15/01/2027
 DEADLINE_WORDS = re.compile(r"last date|deadline|apply (?:by|before)|applications? (?:close|closes|due|end|ends)|closing date|"
                             r"submission[^.]{0,20}(?:by|before|till|until)|(?:till|until)\b|registration (?:closes|ends)", re.I)
-OPEN_WORDS = re.compile(r"(?:applications?|portal|registration)\s+(?:will\s+)?(?:open|opens|starts?|begins?)", re.I)
+# "Applications for 2026-27 will open on…", "Registration starts…", "Portal opens on…"
+OPEN_WORDS = re.compile(r"(?:applications?|portal|registrations?)\b[^.]{0,40}?\b(?:will\s+)?(?:open|opens|starts?|begins?)\b", re.I)
 
 
 def _date(m: re.Match) -> datetime | None:
@@ -108,6 +109,14 @@ def page_text(html: str) -> tuple[str, str]:
 
 
 def build(p: dict, html: str, now: datetime) -> dict:
+    return build_page(p, html, now, source_id=SOURCE_ID, kind="research", base_tags=["research", "internship"],
+                      eligibility_label="You meet the programme's eligibility (year of study, discipline, CGPA) on its official page",
+                      source_type="university_site" if "iit" in p["tags"] else "official_org_site")
+
+
+def build_page(p: dict, html: str, now: datetime, *, source_id: str, kind: str, base_tags: list[str],
+               eligibility_label: str, source_type: str) -> dict:
+    """One listing from one official page: curated facts + dates quoted from the page."""
     desc, text = page_text(html)
     d = find_dates(text, now)
     deadline, opens = d["deadline"], d["opens"]
@@ -123,18 +132,18 @@ def build(p: dict, html: str, now: datetime) -> dict:
         note = "Dates for the next cycle are not announced on the official page yet. Save it and check back."
     intro = desc or " ".join(sentences(text)[:6])
     rec = {
-        "externalId": f"{SOURCE_ID}:{p['key']}",
+        "externalId": f"{source_id}:{p['key']}",
         "title": p["name"][:200],
         "organization": p["org"][:160],
-        "opportunityType": "research",
+        "opportunityType": kind,
         "officialDescription": intro[:3000] or None,
         "sourceUrl": p["url"],
         "applicationUrl": p["url"],
         "additionalSources": [],
-        "sourceType": "university_site" if any(t in p["tags"] for t in ("iit",)) else "official_org_site",
+        "sourceType": source_type,
         "verificationStatus": "verified",
         "lastVerifiedAt": now.isoformat(),
-        "verifiedBy": f"naviq-ingest:{SOURCE_ID}",
+        "verifiedBy": f"naviq-ingest:{source_id}",
         "verificationNotes": f"Programme page read on {now.date()}. Dates are quoted from that page; anything not stated there is left unknown.",
         "declaredStatus": status,
         "applicationOpensAt": opens.isoformat() if opens else None,
@@ -145,11 +154,14 @@ def build(p: dict, html: str, now: datetime) -> dict:
                                         "isNationwide": False}.items() if v is not None},
         "workMode": "onsite",
         "award": None, "stipend": None,
-        "eligibilityRules": [{"key": "programme_eligibility", "kind": "self_declared", "mandatory": True,
-                              "label": "You meet the programme's eligibility (year of study, discipline, CGPA) on its official page",
-                              "note": "Each programme sets its own rules each cycle. Read them on the official page."}],
+        # Audience label names the group only; the app shows it as "Only for: …".
+        "eligibilityRules": ([{"key": "audience", "kind": "self_declared", "mandatory": True, "restrictsAudience": True,
+                               "label": p["audience"][:1].upper() + p["audience"][1:],
+                               "note": "SarthiAI never infers this. Confirm it yourself."}] if p.get("audience") else [])
+                             + [{"key": "programme_eligibility", "kind": "self_declared", "mandatory": True, "label": eligibility_label,
+                                 "note": "Rules (year, marks, income limits) change each cycle. Read them on the official page."}],
         "requiredDocuments": [],
-        "tags": list(dict.fromkeys(["research", "internship"] + p["tags"]))[:20],
+        "tags": list(dict.fromkeys(base_tags + p["tags"]))[:20],
         "status": "published",
     }
     return rec

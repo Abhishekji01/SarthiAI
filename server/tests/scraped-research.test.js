@@ -6,6 +6,7 @@ import { ingestScrapedRecords } from '../src/ingestion/importer.js';
 
 // Output of ingest/research_programs.py on sample pages (ingest/tests/test_research_programs.py).
 const fixture = JSON.parse(await readFile(new URL('./fixtures/research-sample.json', import.meta.url), 'utf8'));
+const scholarships = JSON.parse(await readFile(new URL('./fixtures/scholarship-sample.json', import.meta.url), 'utf8'));
 
 let app;
 let s;
@@ -35,5 +36,16 @@ describe('scraped research internships', () => {
     expect(a.body.meta.search.relaxed).toBe(false);   // a real match, not the fallback
     const b = await request(app).get('/api/opportunities?q=summer%20iit&includeClosed=true').set(auth(s.token));
     expect(b.body.data[0].organization).toBe('IIT Kanpur');
+  });
+
+  it('imports scholarship pages and never auto-recommends a group-restricted one', async () => {
+    const r = await ingestScrapedRecords(scholarships, { now: new Date('2026-11-03T12:00:00Z') });
+    expect(r.rejected).toEqual([]);
+    const res = await request(app).get('/api/matches?tier=all&limit=30').set(auth(s.token));
+    const kotak = res.body.data.find((o) => o.title === 'Kotak Kanya Scholarship');
+    expect(kotak?.tier).not.toBe('recommended');
+    const d = await request(app).get('/api/opportunities?q=kotak&includeClosed=true').set(auth(s.token));
+    expect(d.body.data[0].match.audienceRestricted).toBe(true);
+    expect(d.body.data[0].match.factors[0].detail).toMatch(/Only for: girl students/);
   });
 });

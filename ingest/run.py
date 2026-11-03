@@ -15,13 +15,14 @@ import aicte_internships
 import ats_jobs
 import hackathons
 import research_programs
+import scholarship_pages
 import ias
 import nicsi
 import isro
 import nsp
 from common import Blocked, Fetcher
 
-ADAPTERS = [nsp, nicsi, isro, ias, aicte_internships, ats_jobs, hackathons, research_programs]
+ADAPTERS = [nsp, nicsi, isro, ias, aicte_internships, ats_jobs, hackathons, research_programs, scholarship_pages]
 OUT = Path(__file__).parent / "out"
 
 
