@@ -65,12 +65,26 @@ jobs:
           for s in d['sources']: print(f"| {s['id']} | {s['status']} | {s['count']} | {s['message'][:900].replace('|', '/')} |")
           PY
       - name: Commit snapshot
+        # The snapshot is regenerated in full each run, so there is nothing to merge: save the new
+        # files, move onto the latest branch tip, put them back, commit, push. Fail loudly if the
+        # push never succeeds (a silent failure here once dropped a whole run's data).
         run: |
-          mkdir -p server/data/scraped
-          cp ingest/out/records.json server/data/scraped/records.json
+          mkdir -p /tmp/snapshot
+          cp ingest/out/records.json /tmp/snapshot/records.json
+          [ -f ingest/boards_india.json ] && cp ingest/boards_india.json /tmp/snapshot/boards_india.json || true
           git config user.name "sarthiai-data-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server/data/scraped/records.json ingest/boards_india.json 2>/dev/null || git add server/data/scraped/records.json
-          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
-          git commit -m "Refresh scraped opportunities snapshot"
-          for i in 1 2 3; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break; sleep 5; done
+          for i in 1 2 3 4 5; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            git reset --hard "origin/${GITHUB_REF_NAME}"
+            mkdir -p server/data/scraped
+            cp /tmp/snapshot/records.json server/data/scraped/records.json
+            [ -f /tmp/snapshot/boards_india.json ] && cp /tmp/snapshot/boards_india.json ingest/boards_india.json || true
+            git add server/data/scraped/records.json ingest/boards_india.json
+            if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+            git commit -m "Refresh scraped opportunities snapshot"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then echo "Pushed"; exit 0; fi
+            sleep $((i * 5))
+          done
+          echo "::error::Could not push the snapshot after 5 attempts"
+          exit 1
