@@ -104,3 +104,23 @@ def test_minimum_experience_decides_early_career_roles():
                          text="Requires 1+ years of experience in Python.", url="https://x", apply_url=None, kind="job", now=NOW, min_years=1)
     exp = next(r for r in rec["eligibilityRules"] if r["key"] == "experience")
     assert exp["mandatory"] and "1 year" in exp["label"] and "early-career" in rec["tags"]
+
+
+def test_regressions_from_full_discovery_run():
+    # Lever commitment "Full-time Internal" is not an internship; senior roles never are.
+    assert ats_jobs.classify("Senior Staff Engineer, Software Autonomy", "", "Full-time Internal") is None
+    assert ats_jobs.classify("Staff Autonomy Integration Engineer", "", "Intern") is None
+    assert ats_jobs.classify("Systems Test Engineer", "0-1 years of experience", "Internal") == ("job", 0)
+    # Non-tech roles that matched broad words.
+    assert ats_jobs.classify("Research Analyst, Companies & Transactions", "0-1 years of experience") is None
+    assert ats_jobs.classify("Research Associate, Invivo Pharmacology", "1+ years of experience") is None
+    assert ats_jobs.classify("FP&A Systems Analyst", "1+ years of experience") is None
+    assert ats_jobs.classify("Research Engineer, Applied ML", "1+ years of experience") == ("job", 1)
+    # Same role in several cities becomes one record.
+    a = ats_jobs.build(ats="greenhouse", board="wpp", job_id="1", company="WPP", title="Back End Engineer", location="Gurgaon, India",
+                       text="0-1 years of experience", url="https://x/1", apply_url=None, kind="job", now=NOW)
+    b = ats_jobs.build(ats="greenhouse", board="wpp", job_id="2", company="WPP", title="Back End Engineer", location="Pune, India",
+                       text="0-1 years of experience", url="https://x/2", apply_url=None, kind="job", now=NOW)
+    merged = ats_jobs.merge_duplicates([a, b])
+    assert len(merged) == 1 and "Pune" in merged[0]["location"]["description"]
+    assert "jobgether" not in ats_jobs.boards_to_read().get("greenhouse", [])

@@ -50,10 +50,11 @@ SENIOR_RX = re.compile(
     r"ii|iii|iv|2|3|4|sde\s*-?\s*(2|3)|expert|specialist)\b", re.I)
 EXPERIENCE_RX = re.compile(r"\b([3-9]|1\d)\s*\+?\s*(-|–|to)?\s*\d*\s*\+?\s*years?", re.I)
 TECH_RX = re.compile(
-    r"\b(software|engineer|engineering|developer|sde|swe|programmer|data|machine learning|ml|ai|artificial intelligence|"
-    r"deep learning|nlp|computer vision|research|security|cyber|devops|sre|site reliability|cloud|platform|infrastructure|backend|"
-    r"back-end|frontend|front-end|full[- ]?stack|android|ios|mobile|qa|test|automation|analytics|scientist|"
-    r"embedded|firmware|hardware|vlsi|asic|fpga|silicon|network|systems|database|product design|ui|ux|technical|tech|"
+    r"\b(software|engineer|engineering|developer|sde|swe|programmer|data (engineer|scientist|analyst|analytics|science|platform|qa)|"
+    r"machine learning|ml|ai|artificial intelligence|deep learning|nlp|computer vision|research (engineer|scientist)|applied scientist|"
+    r"security|cyber|devops|sre|site reliability|cloud|platform|infrastructure|backend|"
+    r"back-end|frontend|front-end|full[- ]?stack|android|ios|mobile|qa|test|automation|"
+    r"embedded|firmware|hardware|vlsi|asic|fpga|silicon|network|systems engineer|database|product design|ui|ux|technical|tech|"
     r"solutions engineer|support engineer)\b", re.I)
 
 # Display labels match the server's skill taxonomy so matching treats them as known skills.
@@ -119,10 +120,13 @@ def classify(title: str, text: str, employment: str = "") -> tuple[str, int | No
     """('internship' | 'job', minimum years of experience) for student-relevant roles, else None."""
     if not TECH_RX.search(title):
         return None
-    if INTERN_RX.search(title) or re.search(r"intern", employment or "", re.I):
+    senior = SENIOR_RX.search(re.sub(r"20\d\d", "", title))
+    if INTERN_RX.search(title):
         return "internship", None
-    if SENIOR_RX.search(re.sub(r"20\d\d", "", title)):
+    if senior:
         return None
+    if re.search(r"\bintern(ship)?s?\b", employment or "", re.I):  # "Internal" is not an internship
+        return "internship", None
     head = text[:8000]
     years = min_experience(head)
     entry = bool(ENTRY_TITLE_RX.search(title) or ENTRY_TEXT_RX.search(head))
@@ -330,13 +334,35 @@ READERS = {"greenhouse": greenhouse, "lever": lever, "ashby": ashby}
 BOARDS_FILE = Path(__file__).parent / "boards_india.json"
 
 
+# Boards that repost other companies' jobs (aggregators/staffing), not employers' own postings.
+EXCLUDED_BOARDS = {"jobgether", "examplecorpsandbox"}
+
+
 def boards_to_read() -> dict[str, list[str]]:
     """Hand-picked boards (companies.json) plus boards found to have India postings (boards_india.json)."""
-    boards = {ats: list(v) for ats, v in COMPANIES.items() if not ats.startswith("_")}
+    boards = {ats: list(v) for ats, v in COMPANIES.items() if not ats.startswith("_") and isinstance(v, list)}
     if BOARDS_FILE.exists():
         for ats, items in json.loads(BOARDS_FILE.read_text()).get("boards", {}).items():
             boards.setdefault(ats, []).extend(i["token"] for i in items)
-    return {ats: list(dict.fromkeys(v)) for ats, v in boards.items()}
+    excluded = EXCLUDED_BOARDS | set(COMPANIES.get("_exclude", []))
+    return {ats: [b for b in dict.fromkeys(v) if b.lower() not in excluded] for ats, v in boards.items()}
+
+
+def merge_duplicates(records: list[dict]) -> list[dict]:
+    """One record per company + title + type; other cities are listed in the location description."""
+    out, by_key = [], {}
+    for r in records:
+        key = (r["organization"].lower(), re.sub(r"[^a-z0-9]+", " ", r["title"].lower()).strip(), r["opportunityType"])
+        first = by_key.get(key)
+        if first is None:
+            by_key[key] = r
+            out.append(r)
+            continue
+        city = r["location"].get("city") or r["location"].get("description")
+        desc = first["location"].get("description") or first["location"].get("city") or "India"
+        if city and city.lower() not in desc.lower():
+            first["location"]["description"] = f"{desc}; also {city}"[:200]
+    return out
 
 
 def _read_provider(ats: str, boards: list[str], now: datetime):
@@ -371,9 +397,12 @@ def run(fetcher: Fetcher, now: datetime):
             if recs or india:
                 found.append(f"{ats}/{board}={len(recs)}/{india}")
             records.extend(recs)
+    before = len(records)
+    records = merge_duplicates(records)
+    merged = before - len(records)
     interns = sum(r["opportunityType"] == "internship" for r in records)
     total_boards = sum(len(v) for v in plan.values())
-    msg = (f"{len(records)} India tech roles ({interns} internships, {len(records) - interns} entry-level jobs) from {total_boards} boards. "
-           f"Boards with India postings (kept/India): {', '.join(found) or 'none'}. Not found: {len(missing)} ({', '.join(missing[:40])}). "
+    msg = (f"{len(records)} India tech roles ({interns} internships, {len(records) - interns} entry-level jobs) from {total_boards} boards "
+           f"({merged} same-role postings in other cities merged). Boards with India postings (kept/India): {', '.join(found) or 'none'}. Not found: {len(missing)} ({', '.join(missing[:40])}). "
            f"Errors: {len(errors)} ({', '.join(errors[:20]) or 'none'})")
     return records, msg
