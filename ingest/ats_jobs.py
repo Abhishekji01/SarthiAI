@@ -1,6 +1,6 @@
 """Internships and fresher jobs for tech students, from employers' own job boards.
 
-Reads the public job-board APIs of Greenhouse, Lever, Ashby and SmartRecruiters — the endpoints
+Reads the public job-board APIs of Greenhouse, Lever and Ashby (SmartRecruiters' API is disallowed by its robots.txt, so it is not used) — the endpoints
 those systems publish so employers' postings can be listed by job sites. Only
 postings that are all of:
   - located in India (or remote within India),
@@ -104,20 +104,32 @@ def is_india(location: str) -> bool:
     return bool(INDIA_RX.search(location or ""))
 
 
-def classify(title: str, text: str, employment: str = "") -> str | None:
-    """Returns 'internship', 'job' (entry-level) or None (not for students)."""
+EXP_RX = re.compile(
+    r"(?:minimum\s+(?:of\s+)?|at least\s+)?(\d{1,2})(?:\.\d)?\s*\+?\s*(?:(?:-|–|to)\s*(\d{1,2})\s*\+?\s*)?(?:years?|yrs?)\b"
+    r"(?=[^.\n]{0,60}\b(?:experience|exp\b|industry|professional|hands-on|working))", re.I)
+
+
+def min_experience(text: str) -> int | None:
+    """Smallest lower bound of "N(+)/N-M years ... experience" in the posting, or None if not stated."""
+    lows = [int(m.group(1)) for m in EXP_RX.finditer(text[:8000]) if int(m.group(1)) <= 15]
+    return min(lows) if lows else None
+
+
+def classify(title: str, text: str, employment: str = "") -> tuple[str, int | None] | None:
+    """('internship' | 'job', minimum years of experience) for student-relevant roles, else None."""
     if not TECH_RX.search(title):
         return None
     if INTERN_RX.search(title) or re.search(r"intern", employment or "", re.I):
-        return "internship"
-    title_wo_numbers = re.sub(r"20\d\d", "", title)
-    if SENIOR_RX.search(title_wo_numbers):
+        return "internship", None
+    if SENIOR_RX.search(re.sub(r"20\d\d", "", title)):
         return None
-    head = text[:6000]
-    if ENTRY_TITLE_RX.search(title) or ENTRY_TEXT_RX.search(head):
-        if EXPERIENCE_RX.search(head) and not ENTRY_TEXT_RX.search(head) and not ENTRY_TITLE_RX.search(title):
-            return None
-        return "job"
+    head = text[:8000]
+    years = min_experience(head)
+    entry = bool(ENTRY_TITLE_RX.search(title) or ENTRY_TEXT_RX.search(head))
+    if years is not None and years >= 2:
+        return None  # experienced role, even if it also mentions freshers elsewhere
+    if entry or years is not None:  # 0–1 years, or explicitly entry-level / new grad
+        return "job", years
     return None
 
 
@@ -141,7 +153,7 @@ def work_mode(raw: str, location: str) -> str:
 
 def build(*, ats: str, board: str, job_id: str, company: str, title: str, location: str, text: str, url: str,
           apply_url: str | None, kind: str, now: datetime, mode_raw: str = "", posted: str | None = None,
-          compensation: str | None = None, team: str | None = None) -> dict:
+          compensation: str | None = None, team: str | None = None, min_years: int | None = None) -> dict:
     blob = f"{title}\n{text}"
     skills = [k for k, rx in SKILL_RX.items() if rx.search(blob)][:20]
     degrees = [label for label, rx in DEGREE_PATTERNS if re.search(rx, text, re.I)]
@@ -157,11 +169,16 @@ def build(*, ats: str, board: str, job_id: str, company: str, title: str, locati
         m = YEAR_RX.search(text)
         rules.append({"key": "grad_year", "kind": "graduation_year_in", "label": f"Graduating in {', '.join(map(str, years))}",
                       "mandatory": True, "values": [str(y) for y in years], "sourceExcerpt": clean(m.group(0))[:600] if m else None})
+    if min_years:
+        m = EXP_RX.search(text)
+        rules.append({"key": "experience", "kind": "self_declared",
+                      "label": f"At least {min_years} year{'s' if min_years > 1 else ''} of relevant experience (internships may count — check the posting)",
+                      "mandatory": True, "sourceExcerpt": clean(m.group(0))[:600] if m else None})
     rules.append({"key": "posting_requirements", "kind": "self_declared",
                   "label": "You meet the qualifications listed in the employer's posting", "mandatory": True,
                   "note": "SarthiAI reads only part of a job posting automatically. Read the full posting before applying."})
 
-    tags = [kind, "tech", "india"] + (["fresher"] if kind == "job" else []) + ([slug(team)[:40]] if team else [])
+    tags = [kind, "tech", "india"] + (["fresher"] if kind == "job" and not min_years else ["early-career"] if kind == "job" else []) + ([slug(team)[:40]] if team else [])
     rec = {
         "externalId": f"{SOURCE_ID}:{ats}:{slug(board)}:{job_id}"[:300],
         "title": clean(f"{title}")[:200],
@@ -229,11 +246,12 @@ def greenhouse(fetcher, board, now):
             continue
         _saw_india()
         text = html_to_text(j.get("content", ""))
-        kind = classify(j.get("title", ""), text)
+        c = classify(j.get("title", ""), text)
+        kind, min_years = c if c else (None, None)
         if kind:
             dept = (j.get("departments") or [{}])[0].get("name")
             out.append(build(ats="greenhouse", board=board, job_id=str(j["id"]), company=company, title=j["title"], location=clean(loc),
-                             text=text, url=j["absolute_url"], apply_url=None, kind=kind, now=now, posted=j.get("updated_at"), team=dept))
+                             text=text, url=j["absolute_url"], apply_url=None, kind=kind, now=now, posted=j.get("updated_at"), team=dept, min_years=min_years))
     return out
 
 
@@ -250,7 +268,8 @@ def lever(fetcher, board, now):
         _saw_india()
         lists = "\n".join(f"{l.get('text', '')}\n{html_to_text(l.get('content', ''))}" for l in j.get("lists", []))
         text = clean(j.get("descriptionPlain") or "") + "\n\n" + lists + "\n\n" + clean(j.get("additionalPlain") or "")
-        kind = classify(j.get("text", ""), text, cat.get("commitment", ""))
+        c = classify(j.get("text", ""), text, cat.get("commitment", ""))
+        kind, min_years = c if c else (None, None)
         if kind:
             comp = None
             if j.get("salaryRange"):
@@ -260,7 +279,7 @@ def lever(fetcher, board, now):
             out.append(build(ats="lever", board=board, job_id=j["id"], company=company, title=j["text"], location=clean(loc) or "India",
                              text=text.strip(), url=j["hostedUrl"], apply_url=j.get("applyUrl"), kind=kind, now=now,
                              mode_raw=j.get("workplaceType", ""), posted=datetime.fromtimestamp(j["createdAt"] / 1000).isoformat() if j.get("createdAt") else None,
-                             compensation=comp, team=cat.get("team")))
+                             compensation=comp, team=cat.get("team"), min_years=min_years))
     return out
 
 
@@ -279,14 +298,15 @@ def ashby(fetcher, board, now):
             continue
         _saw_india()
         text = clean(j.get("descriptionPlain") or "") or html_to_text(j.get("descriptionHtml", ""))
-        kind = classify(j.get("title", ""), text, j.get("employmentType", ""))
+        c = classify(j.get("title", ""), text, j.get("employmentType", ""))
+        kind, min_years = c if c else (None, None)
         if kind:
             comp = (j.get("compensation") or {}).get("compensationTierSummary")
             company = re.sub(r"[-_]", " ", board).title()
             out.append(build(ats="ashby", board=board, job_id=j.get("id") or slug(j["title"]), company=company, title=j["title"], location=loc,
                              text=text, url=j["jobUrl"], apply_url=j.get("applyUrl"), kind=kind, now=now,
                              mode_raw=j.get("workplaceType") or ("remote" if j.get("isRemote") else ""), posted=j.get("publishedAt"),
-                             compensation=comp, team=j.get("department") or j.get("team")))
+                             compensation=comp, team=j.get("department") or j.get("team"), min_years=min_years))
     return out
 
 
@@ -316,42 +336,7 @@ def _saw_india():
     _INDIA += 1
 
 
-def smartrecruiters(fetcher, board, now):
-    """SmartRecruiters public Posting API: filtered to India; experience level is structured."""
-    out, offset = [], 0
-    while True:
-        data = _json(fetcher, f"https://api.smartrecruiters.com/v1/companies/{board}/postings?country=in&limit=100&offset={offset}")
-        if data is None:
-            return None
-        content = data.get("content") or []
-        for j in content:
-            _saw_india()
-            title = j.get("name", "")
-            level = ((j.get("experienceLevel") or {}).get("id") or "").lower()
-            emp = ((j.get("typeOfEmployment") or {}).get("label") or "")
-            if level not in ("internship", "entry_level") and not INTERN_RX.search(title) and not re.search(r"intern", emp, re.I):
-                continue
-            if not TECH_RX.search(title) or SENIOR_RX.search(re.sub(r"20\d\d", "", title)):
-                continue
-            detail = _json(fetcher, f"https://api.smartrecruiters.com/v1/companies/{board}/postings/{j['id']}") or {}
-            sections = ((detail.get("jobAd") or {}).get("sections") or {})
-            text = "\n\n".join(html_to_text((sections.get(k) or {}).get("text", "")) for k in ("jobDescription", "qualifications", "additionalInformation"))
-            kind = "internship" if (level == "internship" or INTERN_RX.search(title) or re.search(r"intern", emp, re.I)) else "job"
-            loc = j.get("location") or {}
-            loc_text = ", ".join(x for x in [loc.get("city"), loc.get("region"), "India"] if x)
-            url = detail.get("postingUrl") or f"https://jobs.smartrecruiters.com/{board}/{j['id']}"
-            company = (j.get("company") or {}).get("name") or board
-            out.append(build(ats="smartrecruiters", board=board, job_id=str(j["id"]), company=company, title=title, location=loc_text,
-                             text=text.strip(), url=url, apply_url=detail.get("applyUrl"), kind=kind, now=now,
-                             mode_raw="remote" if loc.get("remote") else ("hybrid" if loc.get("hybrid") else ""),
-                             posted=j.get("releasedDate"), team=(j.get("department") or {}).get("label") or (j.get("function") or {}).get("label")))
-        offset += len(content)
-        if not content or offset >= min(int(data.get("totalFound") or 0), 400):
-            break
-    return out
-
-
-READERS = {"greenhouse": counted(greenhouse), "lever": counted(lever), "ashby": counted(ashby), "smartrecruiters": counted(smartrecruiters)}
+READERS = {"greenhouse": counted(greenhouse), "lever": counted(lever), "ashby": counted(ashby)}
 
 
 def run(fetcher: Fetcher, now: datetime):

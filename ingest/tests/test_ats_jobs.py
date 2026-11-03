@@ -89,26 +89,18 @@ def test_regressions_from_first_real_run():
     assert ats_jobs.classify("Staff Engineer 1 – Salesforce AI", "freshers") is None
     # Bare "analyst" is not a tech role.
     assert ats_jobs.classify("Business Support Analyst (LMS Admin)", "0-1 years") is None
-    assert ats_jobs.classify("Data Analyst", "0-1 years of experience") == "job"
+    assert ats_jobs.classify("Data Analyst", "0-1 years of experience") == ("job", 0)
     assert ats_jobs.company_name("Rubrik Job Board") == "Rubrik"
     assert ats_jobs.company_name("HackerRank Careers") == "HackerRank"
 
 
-def test_smartrecruiters_uses_structured_experience_level():
-    listing = {"totalFound": 3, "content": [
-        {"id": "1", "name": "Software Engineer - Graduate", "company": {"name": "Visa"}, "location": {"city": "Bengaluru", "country": "in"},
-         "experienceLevel": {"id": "entry_level"}, "typeOfEmployment": {"label": "Full-time"}, "releasedDate": "2026-10-20T00:00:00Z"},
-        {"id": "2", "name": "Machine Learning Intern", "company": {"name": "Visa"}, "location": {"city": "Pune", "country": "in"},
-         "experienceLevel": {"id": "internship"}, "typeOfEmployment": {"label": "Intern"}},
-        {"id": "3", "name": "Software Engineer", "company": {"name": "Visa"}, "location": {"city": "Pune", "country": "in"},
-         "experienceLevel": {"id": "mid_senior_level"}},
-    ]}
-    detail = {"postingUrl": "https://jobs.smartrecruiters.com/Visa/1", "jobAd": {"sections": {"jobDescription": {"text": "<p>Python, SQL</p>"}, "qualifications": {"text": "<p>B.Tech, graduating in 2026</p>"}}}}
-
-    class F:
-        def get(self, url, **_):
-            return json.dumps(detail if "/postings/" in url else listing)
-
-    recs = ats_jobs.smartrecruiters(F(), "Visa", NOW)
-    assert [(r["title"], r["opportunityType"]) for r in recs] == [("Software Engineer - Graduate", "job"), ("Machine Learning Intern", "internship")]
-    assert recs[0]["organization"] == "Visa" and recs[0]["location"]["city"] == "Bengaluru"
+def test_minimum_experience_decides_early_career_roles():
+    assert ats_jobs.classify("Software Engineer", "We need 1+ years of experience with Java.") == ("job", 1)
+    assert ats_jobs.classify("Backend Developer", "1-3 years of professional experience") == ("job", 1)
+    assert ats_jobs.classify("Software Engineer", "3+ years of experience. Freshers with strong projects may apply.") is None
+    assert ats_jobs.classify("Software Engineer", "Build great things.") is None  # level unknown: skipped
+    assert ats_jobs.classify("Software Engineer Intern", "5+ years") == ("internship", None)
+    rec = ats_jobs.build(ats="lever", board="acme", job_id="x", company="Acme", title="Software Engineer", location="Pune, India",
+                         text="Requires 1+ years of experience in Python.", url="https://x", apply_url=None, kind="job", now=NOW, min_years=1)
+    exp = next(r for r in rec["eligibilityRules"] if r["key"] == "experience")
+    assert exp["mandatory"] and "1 year" in exp["label"] and "early-career" in rec["tags"]
