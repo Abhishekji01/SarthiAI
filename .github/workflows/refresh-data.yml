@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: '37 21 * * *'   # 03:07 IST daily
   workflow_dispatch:
+    inputs:
+      discover:
+        description: Re-scan all candidate job boards for India postings
+        type: boolean
+        default: false
   push:
     paths:
       - 'ingest/**'
@@ -21,7 +26,7 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -33,6 +38,18 @@ jobs:
         run: pip install -r ingest/requirements.txt pytest
       - name: Unit tests
         run: cd ingest && python -m pytest -q tests
+      # Weekly: find which of ~11,000 employer job boards have India postings (≈1 hour).
+      - name: Discover India job boards (weekly)
+        run: |
+          f=ingest/boards_india.json
+          # Age from the file's own generatedAt (checkout resets file times).
+          age=$(python -c "import json,datetime as d;g=json.load(open('$f'))['generatedAt'];print((d.datetime.now(d.timezone.utc)-d.datetime.fromisoformat(g)).days)" 2>/dev/null || echo 999)
+          echo "boards_india.json age: $age days"
+          if [ "$age" -ge 7 ] || [ "${{ inputs.discover }}" = "true" ]; then
+            cd ingest && python discover_boards.py --minutes 90
+          else
+            echo "boards_india.json is recent; skipping discovery"
+          fi
       - name: Scrape official sources
         run: cd ingest && python run.py | tee run.log
       - name: Report
@@ -53,7 +70,7 @@ jobs:
           cp ingest/out/records.json server/data/scraped/records.json
           git config user.name "sarthiai-data-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server/data/scraped/records.json
+          git add server/data/scraped/records.json ingest/boards_india.json 2>/dev/null || git add server/data/scraped/records.json
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
           git commit -m "Refresh scraped opportunities snapshot"
           for i in 1 2 3; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break; sleep 5; done

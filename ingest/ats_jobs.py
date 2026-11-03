@@ -234,6 +234,7 @@ def _json(fetcher: Fetcher, url: str):
 
 
 def greenhouse(fetcher, board, now):
+    india = 0
     data = _json(fetcher, f"https://boards-api.greenhouse.io/v1/boards/{board}/jobs?content=true")
     if data is None:
         return None
@@ -244,7 +245,7 @@ def greenhouse(fetcher, board, now):
         loc = (j.get("location") or {}).get("name", "") + " " + " ".join(o.get("name", "") for o in j.get("offices", []))
         if not is_india(loc):
             continue
-        _saw_india()
+        india += 1
         text = html_to_text(j.get("content", ""))
         c = classify(j.get("title", ""), text)
         kind, min_years = c if c else (None, None)
@@ -252,10 +253,11 @@ def greenhouse(fetcher, board, now):
             dept = (j.get("departments") or [{}])[0].get("name")
             out.append(build(ats="greenhouse", board=board, job_id=str(j["id"]), company=company, title=j["title"], location=clean(loc),
                              text=text, url=j["absolute_url"], apply_url=None, kind=kind, now=now, posted=j.get("updated_at"), team=dept, min_years=min_years))
-    return out
+    return _found(out, india)
 
 
 def lever(fetcher, board, now):
+    india = 0
     data = _json(fetcher, f"https://api.lever.co/v0/postings/{board}?mode=json")
     if data is None or not isinstance(data, list):
         return None
@@ -265,7 +267,7 @@ def lever(fetcher, board, now):
         loc = " ".join([cat.get("location") or "", *(cat.get("allLocations") or []), j.get("country") or ""])
         if not is_india(loc) and (j.get("country") or "").upper() != "IN":
             continue
-        _saw_india()
+        india += 1
         lists = "\n".join(f"{l.get('text', '')}\n{html_to_text(l.get('content', ''))}" for l in j.get("lists", []))
         text = clean(j.get("descriptionPlain") or "") + "\n\n" + lists + "\n\n" + clean(j.get("additionalPlain") or "")
         c = classify(j.get("text", ""), text, cat.get("commitment", ""))
@@ -280,10 +282,11 @@ def lever(fetcher, board, now):
                              text=text.strip(), url=j["hostedUrl"], apply_url=j.get("applyUrl"), kind=kind, now=now,
                              mode_raw=j.get("workplaceType", ""), posted=datetime.fromtimestamp(j["createdAt"] / 1000).isoformat() if j.get("createdAt") else None,
                              compensation=comp, team=cat.get("team"), min_years=min_years))
-    return out
+    return _found(out, india)
 
 
 def ashby(fetcher, board, now):
+    india = 0
     data = _json(fetcher, f"https://api.ashbyhq.com/posting-api/job-board/{board}?includeCompensation=true")
     if data is None or "jobs" not in data:
         return None
@@ -296,7 +299,7 @@ def ashby(fetcher, board, now):
         loc = " / ".join(x for x in locs if x) + (f" ({addr})" if addr else "")
         if not is_india(loc):
             continue
-        _saw_india()
+        india += 1
         text = clean(j.get("descriptionPlain") or "") or html_to_text(j.get("descriptionHtml", ""))
         c = classify(j.get("title", ""), text, j.get("employmentType", ""))
         kind, min_years = c if c else (None, None)
@@ -307,59 +310,70 @@ def ashby(fetcher, board, now):
                              text=text, url=j["jobUrl"], apply_url=j.get("applyUrl"), kind=kind, now=now,
                              mode_raw=j.get("workplaceType") or ("remote" if j.get("isRemote") else ""), posted=j.get("publishedAt"),
                              compensation=comp, team=j.get("department") or j.get("team"), min_years=min_years))
-    return out
+    return _found(out, india)
 
 
 class Found(list):
-    """List of records that also carries how many India postings the board had (for the run report)."""
+    """Records from one board, plus how many India postings it had (for the run report)."""
     india = 0
 
 
-def counted(reader):
-    def wrapped(fetcher, board, now):
-        global _INDIA
-        _INDIA = 0
-        out = reader(fetcher, board, now)
-        if out is None:
-            return None
-        res = Found(out)
-        res.india = _INDIA
-        return res
-    return wrapped
+def _found(out, india):
+    res = Found(out)
+    res.india = india
+    return res
 
 
-_INDIA = 0
+READERS = {"greenhouse": greenhouse, "lever": lever, "ashby": ashby}
 
 
-def _saw_india():
-    global _INDIA
-    _INDIA += 1
+BOARDS_FILE = Path(__file__).parent / "boards_india.json"
 
 
-READERS = {"greenhouse": counted(greenhouse), "lever": counted(lever), "ashby": counted(ashby)}
+def boards_to_read() -> dict[str, list[str]]:
+    """Hand-picked boards (companies.json) plus boards found to have India postings (boards_india.json)."""
+    boards = {ats: list(v) for ats, v in COMPANIES.items() if not ats.startswith("_")}
+    if BOARDS_FILE.exists():
+        for ats, items in json.loads(BOARDS_FILE.read_text()).get("boards", {}).items():
+            boards.setdefault(ats, []).extend(i["token"] for i in items)
+    return {ats: list(dict.fromkeys(v)) for ats, v in boards.items()}
+
+
+def _read_provider(ats: str, boards: list[str], now: datetime):
+    fetcher = Fetcher()  # own throttle: 1 request/second to this provider's host
+    results = []
+    for board in boards:
+        try:
+            results.append((board, READERS[ats](fetcher, board, now), None))
+        except Exception as e:  # noqa: BLE001 - one board never stops the rest
+            results.append((board, None, type(e).__name__))
+    return ats, results
 
 
 def run(fetcher: Fetcher, now: datetime):
+    from concurrent.futures import ThreadPoolExecutor
     records, found, missing, errors = [], [], [], []
     seen_ids = set()
-    for ats, boards in COMPANIES.items():
-        if ats.startswith("_"):
-            continue
-        for board in dict.fromkeys(boards):
-            try:
-                recs = READERS[ats](fetcher, board, now)
-            except Exception as e:  # noqa: BLE001 - one board never stops the rest
-                errors.append(f"{ats}/{board}: {type(e).__name__}")
+    plan = boards_to_read()
+    with ThreadPoolExecutor(max_workers=len(plan)) as pool:
+        outcomes = list(pool.map(lambda kv: _read_provider(kv[0], kv[1], now), plan.items()))
+    for ats, results in outcomes:
+        for board, recs, err in results:
+            if err:
+                errors.append(f"{ats}/{board}: {err}")
                 continue
             if recs is None:
                 missing.append(f"{ats}/{board}")
                 continue
-            india = getattr(recs, "india", None)
+            india = getattr(recs, "india", 0)
             recs = [r for r in recs if r["externalId"] not in seen_ids][:MAX_PER_BOARD]
             seen_ids.update(r["externalId"] for r in recs)
-            found.append(f"{ats}/{board}={len(recs)}" + (f"/{india}" if india is not None else ""))
+            if recs or india:
+                found.append(f"{ats}/{board}={len(recs)}/{india}")
             records.extend(recs)
     interns = sum(r["opportunityType"] == "internship" for r in records)
-    msg = (f"{len(records)} India tech roles ({interns} internships, {len(records) - interns} entry-level jobs) from {len(found)} boards. "
-           f"Boards (kept/India postings): {', '.join(found)}. Not found: {', '.join(missing) or 'none'}. Errors: {', '.join(errors) or 'none'}")
+    total_boards = sum(len(v) for v in plan.values())
+    msg = (f"{len(records)} India tech roles ({interns} internships, {len(records) - interns} entry-level jobs) from {total_boards} boards. "
+           f"Boards with India postings (kept/India): {', '.join(found) or 'none'}. Not found: {len(missing)} ({', '.join(missing[:40])}). "
+           f"Errors: {len(errors)} ({', '.join(errors[:20]) or 'none'})")
     return records, msg

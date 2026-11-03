@@ -28,6 +28,7 @@ Each run is stored in the `ingestruns` collection (platform admins: `GET /api/ad
 | `isro` | ISRO student internships (via centres) | Public programme page |
 | `ias` | Science Academies SRFP | Refreshes the deadline of the curated record only |
 | `ats` | **Internships & fresher jobs (tech)** from employers' own job boards: Greenhouse, Lever and Ashby public job-board APIs (boards listed in `companies.json`) | Only India-located tech roles that are internships or entry-level (senior titles and "3+ years" postings are dropped). Skills, degree and graduation batch are read from the posting; a "meets the posting's qualifications" check always needs the student's confirmation. No deadlines are invented — postings are open until the employer removes them. |
+| `discover_boards.py` | Weekly: which employer job boards have India postings | Checks ~11,300 Greenhouse/Lever/Ashby boards (candidates in `board_candidates.csv`, from the MIT-licensed [open-ats-feed](https://github.com/veresk06/open-ats-feed) by veresk06) plus `companies.json`; writes `boards_india.json`, which `ats` reads daily. |
 | `aicte_internships` | AICTE National Internship Portal | **Not scraped.** Listings load only from `/api/`, which its robots.txt disallows. Re-checked every run. |
 
 NCS (ncs.gov.in) is a JavaScript app with no static listings and is not scraped. Adding it needs permission or an official feed.
