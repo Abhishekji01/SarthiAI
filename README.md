@@ -118,6 +118,9 @@ Release build: create a keystore, then **Build ▸ Generate Signed App Bundle** 
 
 ## Deploy (browser + API)
 
+**Step-by-step guide: [DEPLOY.md](DEPLOY.md)** (MongoDB Atlas + Render Blueprint + Android APK).
+
+
 The `Dockerfile` builds the web app and runs the API, which serves it. It works on Render, Railway, Fly.io or any container host:
 
 1. Create a MongoDB Atlas cluster.

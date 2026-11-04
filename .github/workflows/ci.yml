@@ -77,3 +77,35 @@ jobs:
         with:
           name: sarthiai-android-debug-apk
           path: web/android/app/build/outputs/apk/debug/*.apk
+
+  docker:
+    name: Docker image (build + smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the production image
+        run: docker build -t sarthiai .
+      - name: Start MongoDB
+        run: |
+          docker network create sarthi
+          docker run -d --name db --network sarthi mongo:8
+          for i in $(seq 1 30); do docker exec db mongosh --quiet --eval 'db.runCommand({ping:1}).ok' 2>/dev/null | grep -q 1 && break; sleep 2; done
+      - name: Start the app exactly as a host would (seed on start)
+        run: |
+          docker run -d --name app --network sarthi -p 4000:4000 \
+            -e MONGODB_URI=mongodb://db:27017/sarthiai -e JWT_SECRET=ci-smoke-test-secret-0123456789abcdef \
+            -e SEED_ON_START=true -e ENABLE_DAILY_REFRESH=false -e TRUST_PROXY=1 sarthiai
+          for i in $(seq 1 60); do curl -fs localhost:4000/ready >/dev/null && break; sleep 2; done
+      - name: Smoke test (API, website, data, scraper runtime)
+        run: |
+          curl -fs localhost:4000/ready | tee /dev/stderr | grep -q '"database":"connected"'
+          curl -fs localhost:4000/ | grep -q '<div id="root">'
+          curl -fs localhost:4000/discover | grep -q '<div id="root">'
+          TOKEN=$(curl -fs localhost:4000/api/auth/register -H 'content-type: application/json' \
+            -d '{"name":"CI Smoke","email":"ci.smoke@example.test","password":"ci-password-123"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['token'])")
+          N=$(curl -fs "localhost:4000/api/opportunities?limit=1&includeClosed=true" -H "Authorization: Bearer $TOKEN" | python3 -c "import sys,json;print(json.load(sys.stdin)['meta']['total'])")
+          echo "listings loaded: $N"; [ "$N" -gt 100 ]
+          docker exec app ../ingest/.venv/bin/python -c "import requests, bs4, lxml, pdfplumber; print('scraper runtime ok')"
+      - name: App logs
+        if: always()
+        run: docker logs app 2>&1 | tail -40 || true

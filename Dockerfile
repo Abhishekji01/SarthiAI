@@ -21,4 +21,6 @@ COPY ingest/ ingest/
 COPY --from=web /app/web/dist web/dist
 WORKDIR /app/server
 EXPOSE 4000
-CMD ["node", "src/server.js"]
+# SEED_ON_START=true loads the committed data (verified listings + daily scraped snapshot) before
+# starting. Safe to repeat: records are upserted, never duplicated. A seed problem never blocks startup.
+CMD ["sh", "-c", "if [ \"$SEED_ON_START\" = \"true\" ]; then node scripts/seed.js || echo 'seed skipped'; fi; exec node src/server.js"]

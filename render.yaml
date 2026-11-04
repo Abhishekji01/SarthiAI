@@ -1,0 +1,27 @@
+# Render Blueprint: Dashboard → New → Blueprint → pick this repository.
+# You only type MONGODB_URI (from MongoDB Atlas) and, optionally, GEMINI_API_KEY.
+services:
+  - type: web
+    name: sarthiai
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: singapore          # closest Render region to India
+    plan: free                 # free instances sleep after ~15 min idle; "starter" stays awake
+    branch: main
+    autoDeploy: true           # the daily data refresh commits to main → redeploy → new data loaded
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false            # paste your Atlas connection string when Render asks
+      - key: JWT_SECRET
+        generateValue: true    # Render creates a long random secret
+      - key: TRUST_PROXY
+        value: "1"
+      - key: SEED_ON_START
+        value: "true"          # load verified + scraped data on every deploy (idempotent)
+      - key: ENABLE_DAILY_REFRESH
+        value: "false"         # GitHub Actions scrapes daily and commits the snapshot instead
+      - key: GEMINI_API_KEY
+        sync: false            # optional: leave empty for "quick answers" mode
