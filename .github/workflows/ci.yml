@@ -88,14 +88,19 @@ jobs:
       - name: Start MongoDB
         run: |
           docker network create sarthi
-          docker run -d --name db --network sarthi mongo:8
-          for i in $(seq 1 30); do docker exec db mongosh --quiet --eval 'db.runCommand({ping:1}).ok' 2>/dev/null | grep -q 1 && break; sleep 2; done
+          docker run -d --name db --network sarthi mongo:7
+          for i in $(seq 1 45); do
+            docker exec db mongosh --quiet --eval 'db.runCommand({ping:1}).ok' 2>/dev/null | grep -q 1 && { echo "MongoDB ready"; exit 0; }
+            sleep 2
+          done
+          echo "MongoDB did not start"; docker ps -a; docker logs db 2>&1 | tail -40; exit 1
       - name: Start the app exactly as a host would (seed on start)
         run: |
           docker run -d --name app --network sarthi -p 4000:4000 \
             -e MONGODB_URI=mongodb://db:27017/sarthiai -e JWT_SECRET=ci-smoke-test-secret-0123456789abcdef \
             -e SEED_ON_START=true -e ENABLE_DAILY_REFRESH=false -e TRUST_PROXY=1 sarthiai
-          for i in $(seq 1 60); do curl -fs localhost:4000/ready >/dev/null && break; sleep 2; done
+          for i in $(seq 1 60); do curl -fs localhost:4000/ready >/dev/null && { echo "app ready"; exit 0; }; sleep 2; done
+          echo "app did not become ready"; docker logs app 2>&1 | tail -60; exit 1
       - name: Smoke test (API, website, data, scraper runtime)
         run: |
           curl -fs localhost:4000/ready | tee /dev/stderr | grep -q '"database":"connected"'
@@ -108,4 +113,7 @@ jobs:
           docker exec app ../ingest/.venv/bin/python -c "import requests, bs4, lxml, pdfplumber; print('scraper runtime ok')"
       - name: App logs
         if: always()
-        run: docker logs app 2>&1 | tail -40 || true
+        run: |
+          docker ps -a || true
+          docker logs app 2>&1 | tail -40 || true
+          docker logs db 2>&1 | tail -20 || true
