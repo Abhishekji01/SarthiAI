@@ -133,6 +133,8 @@ Point the Android app at the same HTTPS URL (`SARTHI_API_URL`).
 |---|---|
 | `GET /api/opportunities?q=…` | Ranked synonym/typo-aware search. Each item has `searchMatch`; `meta.search` has `relaxed`, `terms`, `closedMatches` |
 | `GET /api/matches?tier=all&limit=30` | Recommended + labelled "possible" tier (`item.tier`), up to 30 |
+| `GET /api/me/plan` | **Gap-to-plan**: skills ranked by how many open opportunities they unlock, quick profile wins, experience gaps, and a dated 90-day plan (no AI; effort figures labelled estimates) |
+| `POST /api/me/plan/roadmap` | Adds the plan's steps to the active roadmap (never removes existing milestones) |
 | `POST /api/ai/quick` `{ message }` | Deterministic quick answers (no LLM, always available) |
 | `POST /api/ai/chat` | Response now includes `grounding: { status, unverifiedClaims }` |
 | `GET /api/ai/status` | Includes `quickAnswers: true` |

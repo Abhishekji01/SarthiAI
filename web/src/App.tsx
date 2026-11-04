@@ -21,6 +21,7 @@ const Drafts = lazy(() => import('./pages/Drafts').then((m) => ({ default: m.Dra
 const DraftEditor = lazy(() => import('./pages/Drafts').then((m) => ({ default: m.DraftEditor })));
 const ProfilePage = lazy(() => import('./pages/Profile').then((m) => ({ default: m.ProfilePage })));
 const EditProfile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.EditProfile })));
+const Plan = lazy(() => import('./pages/Plan').then((m) => ({ default: m.Plan })));
 const Saved = lazy(() => import('./pages/Saved').then((m) => ({ default: m.Saved })));
 const Admin = lazy(() => import('./pages/Admin').then((m) => ({ default: m.Admin })));
 
@@ -74,6 +75,7 @@ export function App() {
           <Route path="opportunity/:id" element={<OpportunityDetail />} />
           <Route path="sarthi" element={<Sarthi />} />
           <Route path="roadmap" element={<RoadmapPage />} />
+          <Route path="plan" element={<Plan />} />
           <Route path="applications" element={<Applications />} />
           <Route path="saved" element={<Saved />} />
           <Route path="drafts" element={<Drafts />} />

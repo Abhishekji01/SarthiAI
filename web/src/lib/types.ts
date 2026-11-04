@@ -145,7 +145,7 @@ export interface Milestone {
   id: string; title: string; purpose: string | null; steps: string[]; skills: string[]; effortEstimate: string | null;
   priority: 'high' | 'medium' | 'low'; order: number; prerequisites: string[]; verifiedResources: Resource[];
   suggestedResources: { title: string; note: string | null }[]; projectIdeas: string[]; targetDate: string | null;
-  status: MilestoneStatus; completedAt: string | null; source: 'ai' | 'student';
+  status: MilestoneStatus; completedAt: string | null; source: 'ai' | 'student' | 'plan';
 }
 export interface Roadmap {
   id: string; goal: string; summary: string | null; generatedBy: 'ai' | 'student'; targetOpportunityId: string | null;
@@ -190,4 +190,23 @@ export interface AdminMetrics {
   studentsOnSarthi: { count: number | null; suppressed: boolean };
   announcements: Record<string, number>;
   listings: { opportunityId: string; title: string; status: string; verificationStatus: string; saves: { count: number | null; suppressed: boolean }; tracked: { count: number | null; suppressed: boolean } }[];
+}
+
+export interface PlanOpportunity {
+  id: string; title: string; organization: string; opportunityType: OpportunityType; deadline: string | null;
+  daysLeft: number | null; matchScore: number; fitsGoal: boolean; required?: boolean;
+}
+export interface PlanSkill {
+  id: string; label: string; unlocks: number; required: number; strengthens: number; fitsGoal: number;
+  nearestDeadline: string | null; effortWeeks: number; opportunities: PlanOpportunity[]; resources: Resource[];
+}
+export interface PlanStep {
+  kind: 'profile' | 'skill' | 'experience'; title: string; detail: string; weeks: number | null; skillId?: string;
+  effortEstimate?: string; startsAt: string | null; targetDate: string | null; resources?: Resource[]; applyTo?: PlanOpportunity[];
+}
+export interface GapPlan {
+  generatedAt: string; horizonDays: number; headline: string; note: string;
+  summary: { considered: number; readyNow: number; notFixable: number; roleMismatch: number; restricted: number; closed: number; unlockable: number; plannedUnlocks: number };
+  quickWins: { field: string; label: string; count: number; examples: PlanOpportunity[] }[];
+  skills: PlanSkill[]; experience: PlanOpportunity[]; steps: PlanStep[];
 }

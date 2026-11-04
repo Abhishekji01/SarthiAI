@@ -52,6 +52,8 @@ jobs:
           fi
       - name: Scrape official sources
         run: cd ingest && python run.py | tee run.log
+      - name: Link-check learning resources
+        run: cd ingest && python check_resources.py | tee -a run.log
       - name: Report
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
@@ -72,6 +74,7 @@ jobs:
           mkdir -p /tmp/snapshot
           cp ingest/out/records.json /tmp/snapshot/records.json
           [ -f ingest/boards_india.json ] && cp ingest/boards_india.json /tmp/snapshot/boards_india.json || true
+          cp server/data/resources-verified.json /tmp/snapshot/resources-verified.json
           git config user.name "sarthiai-data-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           for i in 1 2 3 4 5; do
@@ -80,7 +83,8 @@ jobs:
             mkdir -p server/data/scraped
             cp /tmp/snapshot/records.json server/data/scraped/records.json
             [ -f /tmp/snapshot/boards_india.json ] && cp /tmp/snapshot/boards_india.json ingest/boards_india.json || true
-            git add server/data/scraped/records.json ingest/boards_india.json
+            cp /tmp/snapshot/resources-verified.json server/data/resources-verified.json
+            git add server/data/scraped/records.json ingest/boards_india.json server/data/resources-verified.json
             if git diff --cached --quiet; then echo "No changes"; exit 0; fi
             git commit -m "Refresh scraped opportunities snapshot"
             if git push origin "HEAD:${GITHUB_REF_NAME}"; then echo "Pushed"; exit 0; fi

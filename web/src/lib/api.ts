@@ -1,6 +1,6 @@
 import { isNative, storage } from './platform';
 import type {
-  AdminMetrics, Announcement, Application, ChatReply, College, DeadlineItem, Draft, DraftKind, EligibilityResult,
+  AdminMetrics, Announcement, Application, ChatReply, College, DeadlineItem, Draft, DraftKind, EligibilityResult, GapPlan,
   NextMove, Opportunity, PageMeta, Profile, Resource, Roadmap, User,
 } from './types';
 
@@ -127,6 +127,8 @@ export const api = {
 
   announcements: () => get<Announcement[]>('/campus/announcements'),
   nextMoves: () => get<NextMove[]>('/me/next-moves'),
+  plan: () => get<GapPlan>('/me/plan'),
+  addPlanToRoadmap: () => post<{ added: number; roadmap: Roadmap }>('/me/plan/roadmap'),
   deadlines: () => get<DeadlineItem[]>('/me/deadlines'),
   resources: () => get<Resource[]>('/resources'),
 

@@ -15,9 +15,14 @@ export async function seedAll({ dryRun = false } = {}) {
   const [colleges, resources, opportunities] = await Promise.all([
     load('colleges.json'), load('resources.json'), load('verified-opportunities.json'),
   ]);
+  // Candidate resources that passed the daily link check (ingest/check_resources.py).
+  const checked = await readFile(new URL('../data/resources-verified.json', import.meta.url), 'utf8').then(JSON.parse).catch(() => null);
+  const checkedResources = dryRun || !checked?.records?.length ? { skipped: true }
+    : await importResources(checked.records.map(({ checkedAt, ...r }) => r), new Date(checked.checkedAt));
   const report = {
     colleges: dryRun ? { skipped: true } : await importColleges(colleges),
     resources: dryRun ? { skipped: true } : await importResources(resources),
+    linkCheckedResources: checkedResources,
     opportunities: await importOpportunities(opportunities, { dryRun }),
   };
   // Latest snapshot from the official-source scrapers (refreshed daily by .github/workflows/refresh-data.yml),

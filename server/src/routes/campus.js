@@ -6,6 +6,8 @@ import { Announcement, serializeAnnouncement } from '../models/Announcement.js';
 import { College, serializeCollege } from '../models/College.js';
 import { Resource, serializeResource } from '../models/Resource.js';
 import { getDeadlines, getNextMoves } from '../services/nextMoves.js';
+import { buildGapPlan, addPlanToRoadmap } from '../services/gapPlan.js';
+import { presentRoadmap } from './roadmap.js';
 import { escapeRegex, send } from '../utils/http.js';
 
 export const campusRouter = Router();
@@ -43,6 +45,14 @@ export const meRouter = Router();
 meRouter.use(requireAuth);
 meRouter.get('/deadlines', async (req, res) => send(res, await getDeadlines(req.user)));
 meRouter.get('/next-moves', async (req, res) => send(res, await getNextMoves(req.user)));
+/** Gap-to-plan: what stands between the student and open opportunities, as a dated plan. */
+meRouter.get('/plan', async (req, res) => send(res, await buildGapPlan(req.user)));
+/** Adds the plan's steps to the active roadmap (never removes existing milestones). */
+meRouter.post('/plan/roadmap', async (req, res) => {
+  const plan = await buildGapPlan(req.user);
+  const { roadmap, added } = await addPlanToRoadmap(req.user, plan);
+  send(res, { added, roadmap: await presentRoadmap(roadmap) }, { status: 201 });
+});
 
 export const resourcesRouter = Router();
 resourcesRouter.use(requireAuth);

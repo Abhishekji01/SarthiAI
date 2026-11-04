@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { useAsync } from '../lib/useAsync';
 import { useUser } from '../lib/session';
@@ -33,7 +34,8 @@ export function RoadmapPage() {
         <Empty icon={<IconRoute size={40} />} title="No roadmap yet">
           <p>Turn your goal into milestones you can start this week.</p>
           <div className="row wrap" style={{ justifyContent: 'center', marginTop: 12 }}>
-            <button className="btn" onClick={() => setGenOpen(true)}><IconSpark size={16} /> Build with Sarthi</button>
+            <Link className="btn" to="/plan"><IconRoute size={16} /> See your gap plan</Link>
+            <button className="btn secondary" onClick={() => setGenOpen(true)}><IconSpark size={16} /> Build with Sarthi</button>
             <button className="btn ghost" onClick={() => setAddOpen(true)}>Add a milestone myself</button>
           </div>
         </Empty>
@@ -44,7 +46,10 @@ export function RoadmapPage() {
             <h2>{roadmap.goal}</h2>
             {roadmap.summary && <p className="small muted">{roadmap.summary}</p>}
             <div className="row"><div className="grow"><Progress value={roadmap.progress.completed} total={roadmap.progress.total} /></div><span className="faint">{roadmap.progress.completed} of {roadmap.progress.total} done</span></div>
-            <button className="link-btn small" style={{ marginTop: 10 }} onClick={() => setGenOpen(true)}>Rebuild with Sarthi</button>
+            <div className="row wrap" style={{ marginTop: 10, gap: 16 }}>
+              <Link className="link-btn small" to="/plan">See your 90-day gap plan</Link>
+              <button className="link-btn small" onClick={() => setGenOpen(true)}>Rebuild with Sarthi</button>
+            </div>
           </section>
           <div className="stack" style={{ marginTop: 16 }}>
             {roadmap.milestones.map((m, i) => <MilestoneCard key={m.id} m={m} index={i} onUpdate={(b) => updateMilestone(m, b)} onDelete={() => remove(m)} />)}
@@ -70,6 +75,7 @@ function MilestoneCard({ m, index, onUpdate, onDelete }: { m: Milestone; index: 
             <span className={`tag ${m.priority === 'high' ? 'coral' : m.priority === 'medium' ? 'amber' : ''}`}>{m.priority} priority</span>
             {m.targetDate && <span className="tag">By {formatDate(m.targetDate, { day: 'numeric', month: 'short' })}</span>}
             {m.effortEstimate && <span className="tag">≈ {m.effortEstimate}</span>}
+            {m.source === 'plan' && <span className="tag accent">From your gap plan</span>}
           </span>
         </span>
       </button>

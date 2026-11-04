@@ -6,7 +6,7 @@ import { firstName, formatDate, greeting, relativeDays } from '../lib/format';
 import type { NextMove } from '../lib/types';
 import { OpportunityRow } from '../components/OpportunityRow';
 import { Empty, ErrorState, Progress, Skeleton } from '../components/ui';
-import { IconBookmark, IconCalendar, IconDoc, IconMegaphone, IconSpark, IconUser } from '../components/icons';
+import { IconBookmark, IconCalendar, IconDoc, IconMegaphone, IconRoute, IconSpark, IconUser } from '../components/icons';
 
 function moveLink(m: NextMove) {
   switch (m.target.type) {
@@ -27,6 +27,7 @@ export function Home() {
   const matches = useAsync(() => api.matches({ limit: 8, tier: 'all' }), []);
   const roadmap = useAsync(() => api.roadmap(), []);
   const notices = useAsync(() => api.announcements(), []);
+  const plan = useAsync(() => api.plan(), []);
 
   const lead = moves.data?.[0];
   const rest = moves.data?.slice(1, 4) ?? [];
@@ -68,6 +69,18 @@ export function Home() {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Gap to plan */}
+      {plan.data && plan.data.summary.unlockable > 0 && (
+        <Link to="/plan" className="card row" style={{ marginTop: 16, color: 'inherit', textDecoration: 'none', borderColor: 'var(--accent)' }}>
+          <span className="opp-mark"><IconRoute /></span>
+          <span className="grow">
+            <strong>{plan.data.summary.unlockable} more opportunit{plan.data.summary.unlockable === 1 ? 'y is' : 'ies are'} one skill away</strong>
+            <br /><span className="faint">{plan.data.headline}</span>
+          </span>
+          <span aria-hidden>›</span>
+        </Link>
       )}
 
       {/* Ask Sarthi */}
