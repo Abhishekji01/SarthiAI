@@ -5,6 +5,12 @@ import { App } from './App';
 import { SessionProvider } from './lib/session';
 import { ToastProvider } from './components/ui';
 import { isNative } from './lib/platform';
+// Bundled font (works offline in the Android app; not loaded from Google Fonts).
+import '@fontsource/plus-jakarta-sans/400.css';
+import '@fontsource/plus-jakarta-sans/500.css';
+import '@fontsource/plus-jakarta-sans/600.css';
+import '@fontsource/plus-jakarta-sans/700.css';
+import '@fontsource/plus-jakarta-sans/800.css';
 import './styles.css';
 
 createRoot(document.getElementById('root')!).render(

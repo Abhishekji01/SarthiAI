@@ -43,8 +43,8 @@ export function Welcome({ notice }: { notice?: string }) {
           <div className="hero-mark"><LogoMark size={72} /></div>
           {isNative && <button className="icon-btn" aria-label="Server settings" onClick={() => setServerOpen(true)}><IconSettings size={18} /></button>}
         </div>
-        <p className="kicker">SarthiAI</p>
-        <h1 style={{ fontSize: 36 }}>Your future,<br />guided.</h1>
+        <p className="faint">SarthiAI</p>
+        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em' }}>Your future,<br />guided.</h1>
         {mode === 'start' ? (
           <>
             <ul className="list" style={{ margin: '20px 0 28px' }}>

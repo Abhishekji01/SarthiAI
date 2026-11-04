@@ -67,3 +67,19 @@ export function greeting(now = new Date()) {
 export const toDateInput = (d: string | null | undefined) => (d ? new Date(new Date(d).getTime() + IST).toISOString().slice(0, 10) : '');
 /** End of the chosen IST day as an ISO instant (deadlines are "by end of day"). */
 export const fromDateInput = (v: string) => (v ? new Date(`${v}T23:59:00+05:30`).toISOString() : null);
+
+/** One tint per category, used everywhere (tiles, listing logos). Maps to .cat-* CSS classes. */
+export type Category = 'scholarship' | 'internship' | 'research' | 'hackathon' | 'job';
+export function categoryOf(t: OpportunityType): Category {
+  if (t === 'research' || t === 'fellowship') return 'research';
+  if (t === 'hackathon' || t === 'competition') return 'hackathon';
+  if (t === 'job' || t === 'program') return 'job';
+  return t;
+}
+
+/** Up to two initials for a "logo" square: "Indian Academy of Sciences" -> "IA", "Stripe" -> "ST". */
+export function initials(name: string) {
+  const words = name.replace(/[^A-Za-z0-9 ]+/g, ' ').split(/\s+/).filter((w) => w && !/^(the|of|and|for|&)$/i.test(w));
+  if (!words.length) return '?';
+  return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase();
+}

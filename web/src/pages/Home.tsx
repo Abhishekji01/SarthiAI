@@ -1,12 +1,12 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useUser } from '../lib/session';
 import { useAsync } from '../lib/useAsync';
-import { firstName, formatDate, greeting, relativeDays } from '../lib/format';
-import type { NextMove } from '../lib/types';
+import { daysUntil, greeting, initials, relativeDays } from '../lib/format';
+import type { NextMove, Opportunity, OpportunityType } from '../lib/types';
 import { OpportunityRow } from '../components/OpportunityRow';
-import { Empty, ErrorState, Progress, Skeleton } from '../components/ui';
-import { IconBookmark, IconCalendar, IconDoc, IconMegaphone, IconRoute, IconSpark, IconUser } from '../components/icons';
+import { Empty, ErrorState, Skeleton } from '../components/ui';
+import { IconArrowRight, IconBookmark, IconChat, IconDoc, IconMegaphone, IconRoute } from '../components/icons';
 
 function moveLink(m: NextMove) {
   switch (m.target.type) {
@@ -19,166 +19,166 @@ function moveLink(m: NextMove) {
   }
 }
 
+/** The four category tiles. `types` are grouped together (research includes fellowships, etc.). */
+const CATEGORIES: { key: string; label: string; cat: string; types: OpportunityType[]; link: OpportunityType }[] = [
+  { key: 'scholarship', label: 'Scholarships', cat: 'cat-scholarship', types: ['scholarship'], link: 'scholarship' },
+  { key: 'internship', label: 'Internships', cat: 'cat-internship', types: ['internship'], link: 'internship' },
+  { key: 'research', label: 'Research', cat: 'cat-research', types: ['research', 'fellowship'], link: 'research' },
+  { key: 'hackathon', label: 'Hackathons', cat: 'cat-hackathon', types: ['hackathon', 'competition'], link: 'hackathon' },
+];
+
+/** One short, true line for a category tile, from the items themselves. */
+function tileNote(items: Opportunity[]) {
+  if (!items.length) return 'Nothing open right now';
+  const remote = items.filter((o) => o.workMode === 'remote').length;
+  const thisMonth = items.filter((o) => o.deadline && daysUntil(o.deadline) >= 0 && daysUntil(o.deadline) <= 30).length;
+  if (thisMonth) return `${thisMonth} close this month`;
+  if (remote) return `${remote} remote`;
+  return 'Open for you';
+}
+
 export function Home() {
   const user = useUser();
-  const navigate = useNavigate();
   const moves = useAsync(() => api.nextMoves(), []);
   const deadlines = useAsync(() => api.deadlines(), []);
-  const matches = useAsync(() => api.matches({ limit: 8, tier: 'all' }), []);
+  const matches = useAsync(() => api.matches({ limit: 30, tier: 'all' }), []);
   const roadmap = useAsync(() => api.roadmap(), []);
   const notices = useAsync(() => api.announcements(), []);
   const plan = useAsync(() => api.plan(), []);
 
   const lead = moves.data?.[0];
-  const rest = moves.data?.slice(1, 4) ?? [];
-  const recommended = matches.data?.data.filter((o) => o.tier !== 'possible') ?? [];
-  const possible = matches.data?.data.filter((o) => o.tier === 'possible') ?? [];
-  const meta = matches.data?.meta;
+  const all = matches.data?.data ?? [];
+  const recommended = all.filter((o) => o.tier !== 'possible');
+  const topThree = (recommended.length ? recommended : all).slice(0, 3);
+
+  // Hero number: days until the next move is due, else the nearest upcoming deadline.
+  const heroDate = lead?.dueAt ?? deadlines.data?.find((d) => daysUntil(d.date) >= 0)?.date ?? null;
+  const heroDays = heroDate ? Math.max(0, daysUntil(heroDate)) : null;
+  const progress = roadmap.data?.progress;
+  const progressPct = progress && progress.total ? Math.round((progress.completed / progress.total) * 100) : null;
 
   return (
     <div className="page">
       <header className="topbar">
         <div className="grow">
-          <p className="kicker" style={{ marginBottom: 2 }}>{formatDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-          <h1>{greeting()}, {firstName(user.name)}.</h1>
+          <p className="faint" style={{ margin: 0 }}>{greeting()}</p>
+          <h1 style={{ margin: 0 }}>{user.name}</h1>
         </div>
         <Link to="/saved" className="icon-btn" aria-label="Saved"><IconBookmark size={18} /></Link>
-        <Link to="/profile" className="icon-btn" aria-label="Profile"><IconUser size={18} /></Link>
+        <Link to="/profile" className="avatar" aria-label="Profile">{initials(user.name)}</Link>
       </header>
 
-      {/* Your next move */}
-      {moves.loading && !moves.data ? <Skeleton count={1} height={150} /> : moves.error ? <ErrorState error={moves.error} onRetry={moves.reload} /> : lead ? (
-        <section className="card lead" aria-label="Your next move">
-          <p className="kicker">Your next move</p>
-          <h2 style={{ color: 'inherit' }}>{lead.title}</h2>
-          <p className="muted" style={{ color: 'inherit', opacity: 0.9 }}>{lead.detail}</p>
-          <div className="row wrap" style={{ marginTop: 12 }}>
-            <button className="btn on-lead" onClick={() => navigate(moveLink(lead))}>Do this now</button>
-            <span className="tiny" style={{ opacity: 0.8 }}>Why: {lead.reason}</span>
+      {/* ---- Bento grid ---- */}
+      <section className="bento" aria-label="Overview">
+        {moves.loading && !moves.data ? <div className="skeleton full" style={{ height: 150 }} /> : moves.error ? <div className="full"><ErrorState error={moves.error} onRetry={moves.reload} /></div> : lead ? (
+          <div className="tile tile-hero full">
+            <div className="hero-top">
+              <div className="grow">
+                <p className="hero-title">{lead.title}</p>
+                <p className="hero-detail">{lead.detail}</p>
+              </div>
+              {heroDays != null && (
+                <div className="hero-days" aria-label={`${heroDays} days left`}>
+                  <div className="num">{heroDays}</div>
+                  <span>{heroDays === 1 ? 'day left' : 'days left'}</span>
+                </div>
+              )}
+            </div>
+            {progressPct != null && (
+              <div className="hero-bar" role="progressbar" aria-label="Roadmap progress" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100}>
+                <div style={{ width: `${progressPct}%` }} />
+              </div>
+            )}
+            <Link to={moveLink(lead)} className="hero-link">Continue <IconArrowRight size={16} style={{ marginLeft: 6 }} /></Link>
           </div>
-        </section>
-      ) : null}
-      {rest.length > 0 && (
-        <ul className="list card" style={{ padding: '2px 16px', marginTop: 12 }}>
-          {rest.map((m, i) => (
-            <li key={i}>
-              <Link to={moveLink(m)} className="row" style={{ padding: '12px 0', color: 'inherit', textDecoration: 'none' }}>
-                <span className="grow"><strong>{m.title}</strong><br /><span className="faint">{m.detail}</span></span>
-                <span aria-hidden>›</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+        ) : null}
 
-      {/* Gap to plan */}
-      {plan.data && plan.data.summary.unlockable > 0 && (
-        <Link to="/plan" className="card row" style={{ marginTop: 16, color: 'inherit', textDecoration: 'none', borderColor: 'var(--accent)' }}>
-          <span className="opp-mark"><IconRoute /></span>
+        {CATEGORIES.map((c) => {
+          const items = all.filter((o) => c.types.includes(o.opportunityType));
+          return (
+            <Link key={c.key} to={`/discover?type=${c.link}`} className={`tile ${c.cat}`} aria-label={`${items.length} ${c.label}`}>
+              <span className="num">{matches.loading && !matches.data ? '–' : items.length}</span>
+              <span className="tile-label">{c.label}</span>
+              <span className="tile-note">{matches.data ? tileNote(items) : ' '}</span>
+            </Link>
+          );
+        })}
+
+        <Link to="/sarthi" className="tile plain full" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 0 }}>
+          <span className="ask-icon"><IconChat size={22} /></span>
           <span className="grow">
-            <strong>{plan.data.summary.unlockable} more opportunit{plan.data.summary.unlockable === 1 ? 'y is' : 'ies are'} one skill away</strong>
-            <br /><span className="faint">{plan.data.headline}</span>
+            <strong style={{ display: 'block', fontSize: 15 }}>Ask Sarthi</strong>
+            <span className="faint">“Which scholarships can I apply to this month?”</span>
           </span>
-          <span aria-hidden>›</span>
         </Link>
-      )}
+      </section>
 
-      {/* Ask Sarthi */}
-      <Link to="/sarthi" className="card soft row" style={{ marginTop: 16, color: 'inherit', textDecoration: 'none' }}>
-        <span className="opp-mark"><IconSpark /></span>
-        <span className="grow"><strong>Ask Sarthi</strong><br /><span className="faint">“Which scholarships can I apply to this month?”</span></span>
-      </Link>
+      {/* ---- Second row: plan, roadmap, drafts, campus ---- */}
+      <section className="bento" style={{ marginTop: 8 }} aria-label="Shortcuts">
+        <Link to="/plan" className="tile plain small">
+          <IconRoute size={20} />
+          <span className="grow">{plan.data && plan.data.summary.unlockable > 0 ? `${plan.data.summary.unlockable} one skill away` : '90-day plan'}</span>
+        </Link>
+        <Link to="/roadmap" className="tile plain small">
+          <span className="num" style={{ fontSize: 18 }}>{progress ? `${progress.completed}/${progress.total}` : '0'}</span>
+          <span className="grow">Roadmap</span>
+        </Link>
+        <Link to="/drafts" className="tile plain small"><IconDoc size={20} /><span className="grow">Drafts</span></Link>
+        {(notices.data?.length ?? 0) > 0 ? (
+          <a href="#campus" className="tile plain small"><IconMegaphone size={20} /><span className="grow">{notices.data!.length} campus notice{notices.data!.length === 1 ? '' : 's'}</span></a>
+        ) : (
+          <Link to="/applications" className="tile plain small"><IconBookmark size={20} /><span className="grow">Applied</span></Link>
+        )}
+      </section>
 
-      {/* Deadlines */}
+      {/* ---- Coming up ---- */}
       <section className="section">
-        <div className="section-head"><h2>Coming up</h2><Link to="/applications">Tracker</Link></div>
-        {deadlines.loading && !deadlines.data ? <Skeleton count={2} height={56} /> : deadlines.error ? <ErrorState error={deadlines.error} onRetry={deadlines.reload} /> : deadlines.data?.length ? (
-          <ul className="list card" style={{ padding: '2px 16px' }}>
-            {deadlines.data.slice(0, 5).map((d, i) => (
-              <li key={i}>
-                <Link to={d.opportunityId ? `/opportunity/${d.opportunityId}` : '/applications'} className="row" style={{ padding: '12px 0', color: 'inherit', textDecoration: 'none' }}>
-                  <IconCalendar size={20} style={{ color: d.overdue ? 'var(--coral)' : 'var(--ink-3)', flexShrink: 0 }} />
-                  <span className="grow">
-                    <strong>{d.kind === 'next_action' ? d.title : d.title}</strong>
-                    <br /><span className="faint">{d.kind === 'next_action' ? `Next action · ${d.organization}` : d.kind === 'saved_deadline' ? 'Saved · deadline' : 'Application deadline'}</span>
-                  </span>
-                  <span className={`tag ${d.overdue ? 'coral' : 'amber'}`}>{d.overdue ? 'Overdue' : relativeDays(d.date)}</span>
-                </Link>
-              </li>
-            ))}
+        <div className="section-head"><h2>Coming up</h2><Link to="/applications">All</Link></div>
+        {deadlines.loading && !deadlines.data ? <Skeleton count={2} height={52} /> : deadlines.error ? <ErrorState error={deadlines.error} onRetry={deadlines.reload} /> : deadlines.data?.length ? (
+          <ul className="list card" style={{ padding: '0 14px' }}>
+            {deadlines.data.slice(0, 3).map((d, i) => {
+              const n = daysUntil(d.date);
+              return (
+                <li key={i}>
+                  <Link to={d.opportunityId ? `/opportunity/${d.opportunityId}` : '/applications'} className="mini-row">
+                    <span className="grow">
+                      <strong>{d.title}</strong>
+                      <span className="faint">{d.kind === 'next_action' ? `Next action · ${d.organization}` : d.kind === 'saved_deadline' ? 'Saved' : 'Application deadline'}</span>
+                    </span>
+                    <span className={`tag ${d.overdue || n <= 14 ? 'urgent' : ''}`}>{d.overdue ? 'Overdue' : relativeDays(d.date)}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         ) : <p className="faint">No dates in the next 60 days. Save or track an opportunity to see its deadline here.</p>}
       </section>
 
-      {/* Matches */}
+      {/* ---- Matched for you ---- */}
       <section className="section">
         <div className="section-head"><h2>Matched for you</h2><Link to="/discover">See all</Link></div>
-        {matches.loading && !matches.data ? <Skeleton count={3} /> : matches.error ? <ErrorState error={matches.error} onRetry={matches.reload} /> : (
-          <>
-            {recommended.length ? <div className="stack">{recommended.map((o) => <OpportunityRow key={o.id} o={o} />)}</div> : (
-              <Empty title="No confirmed matches yet">
-                Add your degree, year and skills so SarthiAI can check criteria. <Link to="/profile/edit">Complete profile</Link>
-              </Empty>
-            )}
-            {possible.length > 0 && (
-              <>
-                <h3 style={{ marginTop: 22 }}>Also worth checking</h3>
-                <p className="faint" style={{ marginTop: 0 }}>Open and not ruled out, but some criteria couldn’t be confirmed from your profile.</p>
-                <div className="stack">{possible.slice(0, 5).map((o) => <OpportunityRow key={o.id} o={o} />)}</div>
-              </>
-            )}
-            {meta && (meta.excludedIneligible > 0 || meta.excludedRestricted > 0) && (
-              <p className="tiny faint" style={{ marginTop: 12 }}>
-                {meta.excludedIneligible > 0 && `${meta.excludedIneligible} listing${meta.excludedIneligible === 1 ? '' : 's'} hidden because a required criterion isn’t met. `}
-                {meta.excludedRestricted > 0 && `${meta.excludedRestricted} restricted to specific groups — still in Discover. `}
-                Scores are heuristic match strength, not selection chances.
-              </p>
-            )}
-          </>
+        {matches.loading && !matches.data ? <Skeleton count={3} height={120} /> : matches.error ? <ErrorState error={matches.error} onRetry={matches.reload} /> : topThree.length ? (
+          <div className="stack">{topThree.map((o) => <OpportunityRow key={o.id} o={o} />)}</div>
+        ) : (
+          <Empty title="No matches yet">Add your degree, year and skills so SarthiAI can check criteria. <Link to="/profile/edit">Complete profile</Link></Empty>
         )}
       </section>
 
-      {/* Roadmap */}
-      <section className="section">
-        <div className="section-head"><h2>Your roadmap</h2><Link to="/roadmap">Open</Link></div>
-        {roadmap.data ? (
-          <Link to="/roadmap" className="card" style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
-            <p className="kicker">Goal</p>
-            <h3>{roadmap.data.goal}</h3>
-            <div className="row" style={{ marginTop: 10 }}>
-              <div className="grow"><Progress value={roadmap.data.progress.completed} total={roadmap.data.progress.total} /></div>
-              <span className="faint">{roadmap.data.progress.completed}/{roadmap.data.progress.total}</span>
-            </div>
-          </Link>
-        ) : !roadmap.loading && <Link to="/roadmap" className="card soft" style={{ display: 'block', color: 'inherit' }}>Turn your goal into milestones — with Sarthi or by hand.</Link>}
-      </section>
-
-      {/* Campus */}
+      {/* ---- Campus notices (compact) ---- */}
       {(notices.data?.length ?? 0) > 0 && (
-        <section className="section">
-          <div className="section-head"><h2>From your campus</h2></div>
-          <div className="stack">
+        <section className="section" id="campus">
+          <h2>From your campus</h2>
+          <ul className="list card" style={{ padding: '0 14px' }}>
             {notices.data!.slice(0, 3).map((a) => (
-              <article key={a.id} className="card">
-                <div className="row"><IconMegaphone size={18} style={{ color: 'var(--accent)' }} /><p className="kicker" style={{ margin: 0 }}>{a.category} · {a.collegeName}</p></div>
-                <h3 style={{ marginTop: 6 }}>{a.title}</h3>
-                <p className="small muted prewrap" style={{ marginBottom: 6 }}>{a.body}</p>
-                <div className="row wrap tiny faint">
-                  {a.publishedAt && <span>Posted {formatDate(a.publishedAt)}</span>}
-                  {a.linkedOpportunityId && <Link to={`/opportunity/${a.linkedOpportunityId}`}>View opportunity</Link>}
-                  {a.sourceUrl && <a href={a.sourceUrl} target="_blank" rel="noreferrer">Source</a>}
-                </div>
-              </article>
+              <li key={a.id} style={{ padding: '12px 0' }}>
+                <strong className="small">{a.title}</strong>
+                <p className="small muted prewrap" style={{ margin: '2px 0 0' }}>{a.body.length > 160 ? `${a.body.slice(0, 158)}…` : a.body}</p>
+                {a.linkedOpportunityId && <Link className="small" to={`/opportunity/${a.linkedOpportunityId}`}>View opportunity</Link>}
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       )}
-
-      <section className="section">
-        <Link to="/drafts" className="card soft row" style={{ color: 'inherit', textDecoration: 'none' }}>
-          <IconDoc /><span className="grow"><strong>Drafts</strong><br /><span className="faint">Emails, cover letters and resumes</span></span><span aria-hidden>›</span>
-        </Link>
-      </section>
     </div>
   );
 }

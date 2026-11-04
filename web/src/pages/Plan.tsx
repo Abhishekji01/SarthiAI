@@ -33,7 +33,6 @@ export function Plan() {
       {loading && !plan ? <Skeleton count={4} /> : error ? <ErrorState error={error} onRetry={reload} /> : !plan ? null : (
         <>
           <section className="card lead">
-            <p className="kicker">Gap to plan</p>
             <h2 style={{ color: 'inherit' }}>{plan.headline}</h2>
             <p style={{ opacity: 0.9, margin: 0 }} className="small">
               {plan.summary.readyNow} open listing{plan.summary.readyNow === 1 ? '' : 's'} already fit your skills · {plan.summary.unlockable} more are one skill away
@@ -121,7 +120,7 @@ function StepRow({ step: s, index }: { step: PlanStep; index: number }) {
               {s.resources.map((r) => <button key={r.id} className="chip" onClick={() => openExternal(r.url)}><IconExternal size={14} /> {r.title} · {r.cost}</button>)}
             </div>
           )}
-          {s.applyTo && s.applyTo.length > 0 && <><p className="kicker" style={{ margin: '10px 0 2px' }}>Then apply to</p><OppList items={s.applyTo.slice(0, 3)} /></>}
+          {s.applyTo && s.applyTo.length > 0 && <><p className="faint" style={{ margin: '10px 0 2px' }}>Then apply to</p><OppList items={s.applyTo.slice(0, 3)} /></>}
         </div>
       </div>
     </li>

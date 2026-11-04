@@ -41,7 +41,7 @@ function Announcements({ colleges }: { colleges: College[] }) {
         <div className="stack">
           {data.map((a) => (
             <article key={a.id} className="card">
-              <div className="row"><p className="kicker grow" style={{ margin: 0 }}>{a.category} · {a.collegeName}</p><span className={`tag ${a.status === 'published' ? 'jade' : a.status === 'draft' ? 'amber' : 'muted'}`}>{a.status}</span></div>
+              <div className="row"><p className="faint grow" style={{ margin: 0 }}>{a.category} · {a.collegeName}</p><span className={`tag ${a.status === 'published' ? 'jade' : a.status === 'draft' ? 'amber' : 'muted'}`}>{a.status}</span></div>
               <h3 style={{ marginTop: 6 }}>{a.title}</h3>
               <p className="small muted prewrap">{a.body}</p>
               <div className="row wrap">
@@ -105,7 +105,7 @@ function Listings({ colleges, platform }: { colleges: College[]; platform: boole
           {data.map((o) => (
             <article key={o.id} className="card">
               <div className="row" style={{ alignItems: 'flex-start' }}>
-                <div className="grow"><p className="kicker" style={{ marginBottom: 2 }}>{TYPE_LABEL[o.opportunityType]} · {o.organization}</p><h3>{o.title}</h3></div>
+                <div className="grow"><p className="faint" style={{ marginBottom: 2 }}>{TYPE_LABEL[o.opportunityType]} · {o.organization}</p><h3>{o.title}</h3></div>
                 <span className={`tag ${o.status === 'published' ? 'jade' : 'amber'}`}>{o.status}</span>
               </div>
               <div className="opp-meta">
@@ -198,8 +198,8 @@ function Metrics() {
   return (
     <>
       <div className="grid-2">
-        <div className="card"><p className="kicker">Students on SarthiAI</p><div className="score" style={{ fontSize: 34 }}>{n(data.studentsOnSarthi)}</div></div>
-        <div className="card"><p className="kicker">Announcements</p><p className="small">{Object.entries(data.announcements).map(([k, v]) => `${v} ${k}`).join(' · ')}</p></div>
+        <div className="card"><p className="faint">Students on SarthiAI</p><div className="score" style={{ fontSize: 34 }}>{n(data.studentsOnSarthi)}</div></div>
+        <div className="card"><p className="faint">Announcements</p><p className="small">{Object.entries(data.announcements).map(([k, v]) => `${v} ${k}`).join(' · ')}</p></div>
       </div>
       <section className="section">
         <h2>Listing engagement</h2>

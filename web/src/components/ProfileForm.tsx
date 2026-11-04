@@ -73,7 +73,7 @@ export function CollegePicker({ draft, set }: { draft: Draft; set: (p: Partial<D
   if (draft.college) {
     return (
       <div className="card soft row">
-        <div className="grow"><p className="kicker" style={{ margin: 0 }}>Your institution</p><strong>{draft.college.name}</strong></div>
+        <div className="grow"><p className="faint" style={{ margin: 0 }}>Your institution</p><strong>{draft.college.name}</strong></div>
         <button type="button" className="btn small ghost" onClick={() => set({ college: null })}>Change</button>
       </div>
     );
@@ -170,7 +170,7 @@ export function PreferenceFields({ draft, set }: { draft: Draft; set: (p: Partia
       </div>
       <TokenEditor label="Preferred locations" tokens={draft.locations} onChange={(locations) => set({ locations })} suggestions={LOCATIONS} max={10} placeholder="Add a city" />
       <div className="card soft" style={{ marginTop: 8 }}>
-        <p className="kicker">Private — scholarship checks only</p>
+        <p className="faint">Private — scholarship checks only</p>
         <p className="small muted">Optional. Used only to check income and domicile rules. Never sent to the AI and never shown to your college.</p>
         <div className="grid-2">
           <Field label="Home state">

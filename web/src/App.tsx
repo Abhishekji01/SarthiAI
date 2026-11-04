@@ -33,7 +33,7 @@ function useNativeChrome() {
     SplashScreen.hide().catch(() => {});
     const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light }).catch(() => {});
-    StatusBar.setBackgroundColor({ color: dark ? '#111613' : '#F6F1E7' }).catch(() => {});
+    StatusBar.setBackgroundColor({ color: dark ? '#121413' : '#F2F2EE' }).catch(() => {});
   }, []);
   useEffect(() => {
     if (!isNative) return;

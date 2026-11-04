@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, type OpportunityQuery } from '../lib/api';
-import { OPPORTUNITY_TYPES, type Opportunity, type PageMeta } from '../lib/types';
-import { TYPE_LABEL } from '../lib/format';
+import { type Opportunity, type OpportunityType, type PageMeta } from '../lib/types';
+
+const OPPORTUNITY_TYPES: OpportunityType[] = ['scholarship', 'internship', 'research', 'hackathon', 'job', 'fellowship', 'competition', 'program'];
 import { OpportunityRow } from '../components/OpportunityRow';
 import { Empty, ErrorState, Sheet, Skeleton, TopBar } from '../components/ui';
 import { IconCompass, IconFilter, IconSearch } from '../components/icons';
+
+/** Plural chip labels: "Scholarships", "Internships", "Research", "Hackathons"… */
+const CHIP_LABEL: Record<string, string> = {
+  scholarship: 'Scholarships', internship: 'Internships', research: 'Research', fellowship: 'Fellowships',
+  hackathon: 'Hackathons', competition: 'Contests', job: 'Jobs', program: 'Programmes',
+};
 
 const SUGGESTED = ['scholarship', 'machine learning', 'research internship', 'cybersecurity', 'government', 'remote'];
 
@@ -82,17 +89,17 @@ export function Discover() {
 
   return (
     <div className="page">
-      <TopBar title="Discover" kicker="Verified opportunities" actions={
+      <TopBar title="Find" actions={
         <button className={`icon-btn ${activeFilters ? 'active' : ''}`} aria-label={`Filters${activeFilters ? ` (${activeFilters} active)` : ''}`} onClick={() => setFiltersOpen(true)}><IconFilter /></button>
       } />
       <form className="search" role="search" onSubmit={(e) => { e.preventDefault(); update({ q: text.trim() || null }); }}>
         <IconSearch size={18} />
-        <input className="input" type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Try “ML internship”, “scholarship for girls”, “ISRO”" aria-label="Search opportunities" enterKeyHint="search" />
+        <input className="input" type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder='Try "ML internship" or "girls"' aria-label="Search opportunities" enterKeyHint="search" />
       </form>
       <div className="chips scroll" style={{ marginTop: 12 }}>
         <button className={`chip ${!query.type ? 'on' : ''}`} onClick={() => update({ type: null })}>All</button>
         {OPPORTUNITY_TYPES.map((t) => (
-          <button key={t} className={`chip ${query.type === t ? 'on' : ''}`} onClick={() => update({ type: query.type === t ? null : t })}>{TYPE_LABEL[t]}</button>
+          <button key={t} className={`chip ${query.type === t ? 'on' : ''}`} aria-pressed={query.type === t} onClick={() => update({ type: query.type === t ? null : t })}>{CHIP_LABEL[t]}</button>
         ))}
       </div>
 

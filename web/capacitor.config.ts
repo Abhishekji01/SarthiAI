@@ -22,8 +22,8 @@ const config: CapacitorConfig = {
     allowMixedContent: allowHttp,
   },
   plugins: {
-    SplashScreen: { launchShowDuration: 600, backgroundColor: '#F6F1E7', showSpinner: false },
-    LocalNotifications: { smallIcon: 'ic_stat_sarthi', iconColor: '#2944C2' },
+    SplashScreen: { launchShowDuration: 600, backgroundColor: '#F2F2EE', showSpinner: false },
+    LocalNotifications: { smallIcon: 'ic_stat_sarthi', iconColor: '#133B39' },
   },
 };
 

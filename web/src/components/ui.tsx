@@ -5,11 +5,11 @@ import { IconBack, IconX } from './icons';
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 512 512" aria-hidden="true">
-      <rect width="512" height="512" rx="112" fill="var(--accent)" />
-      <circle cx="256" cy="256" r="150" fill="none" stroke="var(--paper)" strokeWidth="18" opacity="0.35" />
-      <path d="M256 92 L300 256 L256 420 L212 256 Z" fill="var(--paper)" />
-      <path d="M256 92 L300 256 L212 256 Z" fill="var(--coral)" />
-      <circle cx="256" cy="256" r="22" fill="var(--accent)" stroke="var(--paper)" strokeWidth="10" />
+      <rect width="512" height="512" rx="120" fill="var(--hero)" />
+      <circle cx="256" cy="256" r="150" fill="none" stroke="#FFFFFF" strokeWidth="18" opacity="0.25" />
+      <path d="M256 92 L300 256 L256 420 L212 256 Z" fill="#FFFFFF" />
+      <path d="M256 92 L300 256 L212 256 Z" fill="var(--mint)" />
+      <circle cx="256" cy="256" r="22" fill="var(--hero)" stroke="#FFFFFF" strokeWidth="10" />
     </svg>
   );
 }
@@ -18,7 +18,7 @@ export function Wordmark({ size = 30 }: { size?: number }) {
   return (
     <div className="row" style={{ gap: 10 }}>
       <LogoMark size={size} />
-      <span className="serif" style={{ fontSize: size * 0.72, fontWeight: 700 }}>Sarthi<span style={{ color: 'var(--accent)' }}>AI</span></span>
+      <span style={{ fontSize: size * 0.62, fontWeight: 800, letterSpacing: '-0.02em' }}>SarthiAI</span>
     </div>
   );
 }
@@ -33,8 +33,8 @@ export function TopBar({ title, back, actions, kicker }: { title: ReactNode; bac
         </button>
       )}
       <div className="grow">
-        {kicker && <p className="kicker" style={{ marginBottom: 2 }}>{kicker}</p>}
         <h1>{title}</h1>
+        {kicker && <p className="subtitle">{kicker}</p>}
       </div>
       {actions}
     </header>

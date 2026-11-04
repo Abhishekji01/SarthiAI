@@ -1,52 +1,66 @@
 import { Link } from 'react-router-dom';
-import type { Opportunity } from '../lib/types';
-import { deadlineLabel, formatMoney, TYPE_LABEL } from '../lib/format';
+import type { Match, Opportunity } from '../lib/types';
+import { categoryOf, daysUntil, deadlineLabel, formatMoney, initials, TYPE_LABEL } from '../lib/format';
 import { IconBookmark } from './icons';
 
+/** Kept for the detail page (one verification label there; the card shows a small ✓ instead). */
 export function VerificationTag({ o }: { o: Pick<Opportunity, 'verificationStatus' | 'isStale'> }) {
   if (o.verificationStatus === 'verified') return <span className={`tag ${o.isStale ? 'amber' : 'jade'}`}>{o.isStale ? 'Verified · recheck' : 'Verified'}</span>;
   if (o.verificationStatus === 'needs_review') return <span className="tag amber">Needs review</span>;
   return <span className="tag muted">Not yet verified</span>;
 }
 
+/** Deadline pill: yellow when 14 days or less, plain grey otherwise. */
 export function DeadlineTag({ o }: { o: Pick<Opportunity, 'deadline' | 'availability' | 'applicationOpensAt'> }) {
   const d = deadlineLabel(o);
-  return <span className={`tag ${d.tone}`}>{d.text}</span>;
+  const urgent = o.availability !== 'closed' && o.deadline != null && daysUntil(o.deadline) <= 14 && daysUntil(o.deadline) >= 0;
+  return <span className={`tag ${urgent ? 'urgent' : ''}`}>{d.text}</span>;
 }
 
-export function OpportunityRow({ o, showWhy = true }: { o: Opportunity; showWhy?: boolean }) {
+/** 3-bar fit meter from the heuristic score and the eligibility result (never a raw number). */
+export function fitLevel(m: Match): { bars: 0 | 1 | 2 | 3; label: string } {
+  if (m.hardBlocked) return { bars: 0, label: 'Not eligible' };
+  if (m.score >= 65 && m.eligibilityOverall !== 'insufficient_source_info') return { bars: 3, label: 'Strong fit' };
+  if (m.score >= 45) return { bars: 2, label: 'Good fit' };
+  return { bars: 1, label: 'Check criteria' };
+}
+
+export function FitMeter({ match }: { match: Match }) {
+  const f = fitLevel(match);
+  if (f.bars === 0) return <div className="fit blocked">Not eligible</div>;
+  return (
+    <div className="fit" title={match.scoreLabel}>
+      <span className="fit-bars" aria-hidden="true">{[1, 2, 3].map((i) => <i key={i} className={i <= f.bars ? 'on' : ''} />)}</span>
+      <span>{f.label}</span>
+    </div>
+  );
+}
+
+export function OpportunityRow({ o }: { o: Opportunity; showWhy?: boolean }) {
   const money = formatMoney(o.stipend) ?? formatMoney(o.award);
-  const restricted = o.match?.factors.find((f) => f.factor === 'audience');
-  const why = o.match?.factors.find((f) => f.positive && f.factor !== 'deadline');
+  const place = o.workMode === 'remote' ? 'Remote' : o.location?.city ?? (o.location?.isNationwide ? 'Across India' : null);
+  const marked = Boolean(o.isSaved || o.tracked);
   return (
     <Link to={`/opportunity/${o.id}`} className="opp">
       <article className="card">
         <div className="opp-head">
-          <div className="opp-mark" aria-hidden="true">{o.organization.replace(/^(the|indian|national)\s+/i, '').charAt(0).toUpperCase()}</div>
+          <div className={`opp-mark cat-${categoryOf(o.opportunityType)}`} aria-hidden="true">{initials(o.organization)}</div>
           <div className="grow">
-            <p className="kicker" style={{ marginBottom: 2 }}>{TYPE_LABEL[o.opportunityType]} · {o.organization}</p>
-            <h3>{o.title}</h3>
+            <p className="opp-org">
+              {TYPE_LABEL[o.opportunityType]} · {o.organization}
+              {o.verificationStatus === 'verified' && <span className="ok" aria-label="Verified"> ✓</span>}
+            </p>
+            <h3 className="opp-title">{o.title}</h3>
           </div>
-          {o.match && !o.match.hardBlocked && (
-            <div style={{ textAlign: 'right' }} title={o.match.scoreLabel}>
-              <div className="score">{o.match.score}</div>
-              <div className="tiny faint">match</div>
-            </div>
-          )}
+          {marked && <span className="saved-mark" aria-label={o.tracked ? 'Tracked' : 'Saved'}><IconBookmark size={18} filled /></span>}
         </div>
-        {showWhy && restricted && <p className="small" style={{ color: 'var(--amber)', margin: '8px 0 0' }}>{restricted.detail}</p>}
-        {showWhy && !restricted && why && <p className="small muted" style={{ margin: '8px 0 0' }}>{why.detail}</p>}
-        <div className="opp-meta">
+        <div className="opp-row2">
+          {money
+            ? <span className="opp-amount">{money.length > 40 ? `${money.slice(0, 38)}…` : money}</span>
+            : <span className="opp-amount none">{place ?? 'Amount not stated'}</span>}
           <DeadlineTag o={o} />
-          <VerificationTag o={o} />
-          {o.tier === 'possible' && <span className="tag accent">Worth checking</span>}
-          {o.match?.hardBlocked && <span className="tag coral">Criterion not met</span>}
-          {money && <span className="tag">{money.length > 34 ? `${money.slice(0, 32)}…` : money}</span>}
-          {o.workMode === 'remote' && <span className="tag">Remote</span>}
-          {o.collegeId && <span className="tag accent">Your campus</span>}
-          {o.tracked && <span className="tag accent">Tracked</span>}
-          {o.isSaved && <span className="tag" aria-label="Saved"><IconBookmark size={12} filled /> Saved</span>}
         </div>
+        {o.match && <FitMeter match={o.match} />}
       </article>
     </Link>
   );

@@ -51,9 +51,9 @@ export function ProfilePage() {
 
       {(p.skills?.length ?? 0) > 0 && (
         <section className="section">
-          <p className="kicker">Skills</p>
+          <p className="faint">Skills</p>
           <div className="chips">{p.skills!.map((s) => <span key={s} className="tag accent">{s}</span>)}</div>
-          {(p.interests?.length ?? 0) > 0 && <><p className="kicker" style={{ marginTop: 14 }}>Interests</p><div className="chips">{p.interests!.map((s) => <span key={s} className="tag">{s}</span>)}</div></>}
+          {(p.interests?.length ?? 0) > 0 && <><p className="faint" style={{ marginTop: 14 }}>Interests</p><div className="chips">{p.interests!.map((s) => <span key={s} className="tag">{s}</span>)}</div></>}
         </section>
       )}
 

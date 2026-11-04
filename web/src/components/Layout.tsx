@@ -1,14 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useSession } from '../lib/session';
-import { IconBriefcase, IconCompass, IconHome, IconMegaphone, IconRoute, IconSpark, IconUser } from './icons';
+import { IconBriefcase, IconChat, IconCompass, IconHome, IconMegaphone, IconRoute, IconUser } from './icons';
 import { Wordmark } from './ui';
 
+/** Phone: 4 tabs in a floating dark bar. Profile is reached from the avatar on Home. */
 const TABS = [
   { to: '/', label: 'Home', icon: IconHome, end: true },
-  { to: '/discover', label: 'Discover', icon: IconCompass },
-  { to: '/sarthi', label: 'Sarthi', icon: IconSpark },
-  { to: '/roadmap', label: 'Roadmap', icon: IconRoute },
-  { to: '/applications', label: 'Tracker', icon: IconBriefcase },
+  { to: '/discover', label: 'Find', icon: IconCompass },
+  { to: '/sarthi', label: 'Ask', icon: IconChat },
+  { to: '/applications', label: 'Applied', icon: IconBriefcase },
 ];
 
 export function Layout() {
@@ -19,8 +19,9 @@ export function Layout() {
       <nav className="sidebar" aria-label="Main">
         <div className="brand"><Wordmark size={30} /></div>
         {TABS.map(({ to, label, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end}><Icon /> {label === 'Sarthi' ? 'Ask Sarthi' : label === 'Tracker' ? 'Applications' : label}</NavLink>
+          <NavLink key={to} to={to} end={end}><Icon /> {label === 'Ask' ? 'Ask Sarthi' : label}</NavLink>
         ))}
+        <NavLink to="/roadmap"><IconRoute /> Roadmap</NavLink>
         {isAdmin && <NavLink to="/admin"><IconMegaphone /> Campus admin</NavLink>}
         <div className="spacer" />
         <NavLink to="/profile"><IconUser /> {user?.name.split(' ')[0] ?? 'Profile'}</NavLink>
@@ -30,7 +31,7 @@ export function Layout() {
       </main>
       <nav className="tabbar" aria-label="Main">
         {TABS.map(({ to, label, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end}><Icon /> {label}</NavLink>
+          <NavLink key={to} to={to} end={end}><Icon size={22} /> {label}</NavLink>
         ))}
       </nav>
     </div>

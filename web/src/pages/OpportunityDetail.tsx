@@ -7,9 +7,9 @@ import { openExternal, reminderPermission, requestReminderPermission, tap } from
 import { syncReminders } from '../lib/reminders';
 import { AVAILABILITY_LABEL, formatDate, formatMoney, fromDateInput, OVERALL_LABEL, STATUS_LABEL, toDateInput, TYPE_LABEL } from '../lib/format';
 import { APPLICATION_STATUSES, type ApplicationStatus, type EligibilityResult, type Opportunity } from '../lib/types';
-import { DeadlineTag, VerificationTag } from '../components/OpportunityRow';
+import { DeadlineTag, FitMeter, VerificationTag } from '../components/OpportunityRow';
 import { ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
-import { IconBookmark, IconCheck, IconDoc, IconExternal, IconSpark, IconX } from '../components/icons';
+import { IconBookmark, IconCheck, IconDoc, IconExternal, IconChat, IconX } from '../components/icons';
 
 export function OpportunityDetail() {
   const { id = '' } = useParams();
@@ -53,7 +53,7 @@ export function OpportunityDetail() {
       <TopBar title="" back actions={
         <button className={`icon-btn ${o.isSaved ? 'active' : ''}`} aria-label={o.isSaved ? 'Unsave' : 'Save'} aria-pressed={o.isSaved} onClick={toggleSave}><IconBookmark size={18} filled={o.isSaved} /></button>
       } />
-      <p className="kicker">{TYPE_LABEL[o.opportunityType]} · {o.organization}</p>
+      <p className="faint">{TYPE_LABEL[o.opportunityType]} · {o.organization}</p>
       <h1>{o.title}</h1>
       <div className="opp-meta" style={{ marginBottom: 16 }}>
         <DeadlineTag o={o} />
@@ -72,7 +72,7 @@ export function OpportunityDetail() {
 
       {o.summary && (
         <section className="section">
-          <p className="kicker">In short {o.summarySource === 'ai' ? '· AI summary' : ''}</p>
+          <p className="faint">In short {o.summarySource === 'ai' ? '· AI summary' : ''}</p>
           <p>{o.summary}</p>
         </section>
       )}
@@ -113,7 +113,7 @@ export function OpportunityDetail() {
         <h2>Get help</h2>
         <div className="grid-2">
           <button className="card soft row" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate(`/sarthi?about=${o.id}&title=${encodeURIComponent(o.title)}`)}>
-            <IconSpark /><span className="grow"><strong>Ask Sarthi about this</strong><br /><span className="faint">Eligibility, documents, how to prepare</span></span>
+            <IconChat /><span className="grow"><strong>Ask Sarthi about this</strong><br /><span className="faint">Eligibility, documents, how to prepare</span></span>
           </button>
           <button className="card soft row" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => setDraftOpen(true)}>
             <IconDoc /><span className="grow"><strong>Draft an email or cover letter</strong><br /><span className="faint">You review before using it</span></span>
@@ -155,7 +155,7 @@ function WhyThis({ o }: { o: Opportunity }) {
     <section className="section">
       <div className="section-head">
         <h2>Why this opportunity?</h2>
-        {!m.hardBlocked && <span className="row" title={m.scoreLabel}><span className="score">{m.score}</span><span className="faint">/100{m.confidence ? ` · ${m.confidence} confidence` : ''}</span></span>}
+        <FitMeter match={m} />
       </div>
       <div className="card">
         {m.factors.length === 0 && <p className="faint">Not enough profile information to explain the fit yet.</p>}
@@ -166,12 +166,12 @@ function WhyThis({ o }: { o: Opportunity }) {
         <hr className="divider" />
         {ai ? (
           <div>
-            <p className="kicker">Sarthi explains · AI</p>
+            <p className="faint">Sarthi explains · AI</p>
             <p className="small">{ai.explanation}</p>
             {ai.nextSteps.length > 0 && <ul className="small" style={{ paddingLeft: 18, margin: 0 }}>{ai.nextSteps.map((s) => <li key={s}>{s}</li>)}</ul>}
           </div>
         ) : (
-          <button className="btn small secondary" onClick={explain} disabled={busy}><IconSpark size={16} /> {busy ? 'Thinking…' : 'Explain in plain words'}</button>
+          <button className="btn small secondary" onClick={explain} disabled={busy}><IconChat size={16} /> {busy ? 'Thinking…' : 'Explain in plain words'}</button>
         )}
         {err && <p className="small" style={{ color: 'var(--amber)', marginTop: 8 }}>{err}</p>}
       </div>
@@ -318,7 +318,7 @@ function DraftSheet({ o, open, onClose }: { o: Opportunity; open: boolean; onClo
       <Field label="Anything to include? (optional)"><textarea className="input" value={extra} onChange={(e) => setExtra(e.target.value)} maxLength={600} placeholder="e.g. Mention my CTF project" style={{ minHeight: 80 }} /></Field>
       <p className="tiny faint">Sarthi uses only your profile and this listing. Missing details appear as [ADD: …] placeholders for you to fill in.</p>
       {err && <div className="notice amber" style={{ marginBottom: 12 }}>{err}</div>}
-      <button className="btn block" onClick={go} disabled={busy}><IconSpark size={16} /> {busy ? 'Writing…' : 'Generate draft'}</button>
+      <button className="btn block" onClick={go} disabled={busy}><IconChat size={16} /> {busy ? 'Writing…' : 'Generate draft'}</button>
     </Sheet>
   );
 }

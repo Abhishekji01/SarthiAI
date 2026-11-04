@@ -37,7 +37,7 @@ export function Onboarding() {
   };
 
   return (
-    <div className="page" style={{ maxWidth: 620 }}>
+    <div className="page no-nav" style={{ maxWidth: 620 }}>
       <div className="row between" style={{ marginBottom: 20 }}>
         <LogoMark size={36} />
         <button className="link-btn" onClick={() => finish(true)} disabled={busy}>Skip for now</button>
@@ -45,7 +45,7 @@ export function Onboarding() {
       <div className="steps" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
         {STEPS.map((_, i) => <div key={i} className={i <= step ? 'done' : ''} />)}
       </div>
-      <p className="kicker">Step {step + 1} of {STEPS.length}</p>
+      <p className="faint">Step {step + 1} of {STEPS.length}</p>
       <h1>{step === 0 ? `Welcome, ${user.name.split(' ')[0]}. ` : ''}{STEPS[step].title}</h1>
       <p className="muted" style={{ marginBottom: 20 }}>{STEPS[step].sub}</p>
 

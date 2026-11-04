@@ -7,7 +7,7 @@ import { openExternal } from '../lib/platform';
 import { formatDate, fromDateInput, toDateInput } from '../lib/format';
 import type { Milestone, MilestoneStatus, Roadmap } from '../lib/types';
 import { Empty, ErrorState, Field, Progress, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
-import { IconExternal, IconPlus, IconRoute, IconSpark, IconTrash } from '../components/icons';
+import { IconExternal, IconPlus, IconRoute, IconChat, IconTrash } from '../components/icons';
 
 const STATUS_TEXT: Record<MilestoneStatus, string> = { not_started: 'Not started', in_progress: 'In progress', paused: 'Paused', completed: 'Completed' };
 const STATUS_TONE: Record<MilestoneStatus, string> = { not_started: 'muted', in_progress: 'accent', paused: 'amber', completed: 'jade' };
@@ -35,14 +35,14 @@ export function RoadmapPage() {
           <p>Turn your goal into milestones you can start this week.</p>
           <div className="row wrap" style={{ justifyContent: 'center', marginTop: 12 }}>
             <Link className="btn" to="/plan"><IconRoute size={16} /> See your gap plan</Link>
-            <button className="btn secondary" onClick={() => setGenOpen(true)}><IconSpark size={16} /> Build with Sarthi</button>
+            <button className="btn secondary" onClick={() => setGenOpen(true)}><IconChat size={16} /> Build with Sarthi</button>
             <button className="btn ghost" onClick={() => setAddOpen(true)}>Add a milestone myself</button>
           </div>
         </Empty>
       ) : (
         <>
           <section className="card">
-            <p className="kicker">Goal{roadmap.generatedBy === 'ai' ? ' · plan drafted by Sarthi' : ''}</p>
+            <p className="faint">Goal{roadmap.generatedBy === 'ai' ? ' · plan drafted by Sarthi' : ''}</p>
             <h2>{roadmap.goal}</h2>
             {roadmap.summary && <p className="small muted">{roadmap.summary}</p>}
             <div className="row"><div className="grow"><Progress value={roadmap.progress.completed} total={roadmap.progress.total} /></div><span className="faint">{roadmap.progress.completed} of {roadmap.progress.total} done</span></div>
@@ -82,18 +82,18 @@ function MilestoneCard({ m, index, onUpdate, onDelete }: { m: Milestone; index: 
       {open && (
         <div style={{ marginTop: 12 }}>
           {m.purpose && <p className="small muted">{m.purpose}</p>}
-          {m.steps.length > 0 && <><p className="kicker">Steps</p><ol className="small" style={{ paddingLeft: 20, marginTop: 0 }}>{m.steps.map((s) => <li key={s}>{s}</li>)}</ol></>}
+          {m.steps.length > 0 && <><p className="faint">Steps</p><ol className="small" style={{ paddingLeft: 20, marginTop: 0 }}>{m.steps.map((s) => <li key={s}>{s}</li>)}</ol></>}
           {m.verifiedResources.length > 0 && (
-            <><p className="kicker">Verified resources</p>
+            <><p className="faint">Verified resources</p>
               <div className="stack" style={{ marginBottom: 10 }}>{m.verifiedResources.map((r) => (
                 <button key={r.id} className="link-btn row small" onClick={() => openExternal(r.url)}><IconExternal size={14} /> {r.title} · {r.provider} ({r.cost})</button>
               ))}</div></>
           )}
           {m.suggestedResources.length > 0 && (
-            <><p className="kicker">Ideas from Sarthi · not verified</p>
+            <><p className="faint">Ideas from Sarthi · not verified</p>
               <ul className="small muted" style={{ paddingLeft: 18, marginTop: 0 }}>{m.suggestedResources.map((s) => <li key={s.title}>{s.title}{s.note ? ` — ${s.note}` : ''}</li>)}</ul></>
           )}
-          {m.projectIdeas.length > 0 && <><p className="kicker">Project ideas</p><ul className="small" style={{ paddingLeft: 18, marginTop: 0 }}>{m.projectIdeas.map((s) => <li key={s}>{s}</li>)}</ul></>}
+          {m.projectIdeas.length > 0 && <><p className="faint">Project ideas</p><ul className="small" style={{ paddingLeft: 18, marginTop: 0 }}>{m.projectIdeas.map((s) => <li key={s}>{s}</li>)}</ul></>}
           <div className="row wrap" style={{ marginTop: 8 }}>
             {m.status !== 'in_progress' && m.status !== 'completed' && <button className="btn small" onClick={() => onUpdate({ status: 'in_progress' })}>Start</button>}
             {m.status === 'in_progress' && <button className="btn small" onClick={() => onUpdate({ status: 'completed' })}>Mark complete</button>}
@@ -128,7 +128,7 @@ function GenerateSheet({ open, onClose, defaultGoal, onDone }: { open: boolean; 
         <input className="input" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="e.g. Land a cybersecurity internship by summer" maxLength={300} />
       </Field>
       {err && <div className="notice amber" style={{ marginBottom: 12 }}>{err}</div>}
-      <button className="btn block" onClick={go} disabled={busy || goal.trim().length < 3}><IconSpark size={16} /> {busy ? 'Planning… (up to 30s)' : 'Generate roadmap'}</button>
+      <button className="btn block" onClick={go} disabled={busy || goal.trim().length < 3}><IconChat size={16} /> {busy ? 'Planning… (up to 30s)' : 'Generate roadmap'}</button>
     </Sheet>
   );
 }

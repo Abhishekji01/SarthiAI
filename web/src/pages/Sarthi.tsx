@@ -6,7 +6,7 @@ import { useSession } from '../lib/session';
 import { syncReminders } from '../lib/reminders';
 import type { ChatReply, ProposedAction } from '../lib/types';
 import { RichText, TopBar, useToast } from '../components/ui';
-import { IconCheck, IconSend, IconSpark } from '../components/icons';
+import { IconCheck, IconSend, IconChat } from '../components/icons';
 
 interface Msg { role: 'user' | 'assistant'; content: string; reply?: ChatReply; quick?: boolean }
 
@@ -82,7 +82,7 @@ export function Sarthi() {
 
       {messages.length === 0 && (
         <div className="card soft" style={{ marginBottom: 16 }}>
-          <div className="row" style={{ marginBottom: 8 }}><span className="opp-mark"><IconSpark /></span><h3 style={{ margin: 0 }}>Namaste! I’m Sarthi.</h3></div>
+          <div className="row" style={{ marginBottom: 8 }}><span className="ask-icon"><IconChat size={22} /></span><h3 style={{ margin: 0 }}>Namaste! I’m Sarthi.</h3></div>
           <p className="small muted">I find verified opportunities, check eligibility criterion by criterion, and plan next steps. I only state facts I can find in SarthiAI — dates and amounts are fact-checked before you see them. You can write in English or Hindi.</p>
           <div className="chips">{STARTERS.map((s) => <button key={s} className="chip" onClick={() => send(s)}>{s}</button>)}</div>
         </div>
@@ -159,7 +159,7 @@ function ActionCard({ a }: { a: ProposedAction }) {
   };
   return (
     <div className="card" style={{ marginTop: 10, padding: 12 }}>
-      <p className="kicker" style={{ marginBottom: 4 }}>Needs your confirmation</p>
+      <p className="faint" style={{ marginBottom: 4 }}>Needs your confirmation</p>
       <p className="small" style={{ fontWeight: 600 }}>{a.label}</p>
       {a.nextAction && <p className="small muted">Next action: {a.nextAction}</p>}
       {state === 'done' ? <span className="tag jade"><IconCheck size={12} /> Done</span> : (

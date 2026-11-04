@@ -6,7 +6,7 @@ import { shareText } from '../lib/platform';
 import { formatDate, titleCase } from '../lib/format';
 import type { DraftKind } from '../lib/types';
 import { Empty, ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
-import { IconDoc, IconPlus, IconShare, IconSpark, IconTrash } from '../components/icons';
+import { IconDoc, IconPlus, IconShare, IconChat, IconTrash } from '../components/icons';
 
 export function Drafts() {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ export function Drafts() {
           {data.map((d) => (
             <Link key={d.id} to={`/drafts/${d.id}`} className="card" style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
               <div className="row">
-                <div className="grow"><p className="kicker" style={{ marginBottom: 2 }}>{titleCase(d.kind)}{d.generatedBy === 'ai' ? ' · AI draft' : ''}</p><h3>{d.title ?? d.subject ?? 'Untitled draft'}</h3></div>
+                <div className="grow"><p className="faint" style={{ marginBottom: 2 }}>{titleCase(d.kind)}{d.generatedBy === 'ai' ? ' · AI draft' : ''}</p><h3>{d.title ?? d.subject ?? 'Untitled draft'}</h3></div>
                 <span className={`tag ${d.reviewedAt ? 'jade' : 'amber'}`}>{d.reviewedAt ? 'Reviewed' : 'Needs review'}</span>
               </div>
               <p className="faint" style={{ margin: '6px 0 0' }}>Updated {formatDate(d.updatedAt)}</p>
@@ -62,7 +62,7 @@ function NewDraftSheet({ open, onClose, onCreated }: { open: boolean; onClose: (
       {kind !== 'blank' && <Field label="Anything to emphasise? (optional)"><textarea className="input" value={extra} onChange={(e) => setExtra(e.target.value)} maxLength={600} style={{ minHeight: 80 }} /></Field>}
       <p className="tiny faint">AI drafts use only facts from your profile; gaps are marked [ADD: …].</p>
       {err && <div className="notice amber" style={{ marginBottom: 12 }}>{err}</div>}
-      <button className="btn block" onClick={go} disabled={busy}>{kind !== 'blank' && <IconSpark size={16} />} {busy ? 'Working…' : 'Create'}</button>
+      <button className="btn block" onClick={go} disabled={busy}>{kind !== 'blank' && <IconChat size={16} />} {busy ? 'Working…' : 'Create'}</button>
     </Sheet>
   );
 }
