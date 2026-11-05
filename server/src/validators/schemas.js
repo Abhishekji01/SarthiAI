@@ -100,7 +100,9 @@ export const opportunityQuerySchema = z.object({
   campusOnly: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
   // Also include listings that only mention the search terms in their description.
   mentions: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
-  sort: z.enum(['relevance', 'deadline', 'recent']).default('relevance'),
+  // Only listings that state an award or prize.
+  hasPrize: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
+  sort: z.enum(['relevance', 'deadline', 'recent', 'nearby']).default('relevance'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });

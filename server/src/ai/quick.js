@@ -34,7 +34,7 @@ const cite = (o) => ({ opportunityId: o.id, title: o.title, sourceUrl: o.sourceU
 function describe(o, now) {
   const when = o.deadline ? `closes ${fmtDate(o.deadline)} (${daysLeft(o.deadline, now)})` : o.availability === 'upcoming' ? 'opening soon' : 'deadline not published';
   const why = o.match?.factors?.find((f) => f.positive)?.detail;
-  return `• **${o.title}** — ${o.organization}. ${when}.${why ? ` ${why}` : ''}${o.verificationStatus !== 'verified' ? ' (not yet verified)' : ''}`;
+  return `• **${o.title}** — ${o.organization} · ${when}.${why ? ` ${why}` : ''}${o.verificationStatus !== 'verified' ? ' (not yet verified)' : ''}`;
 }
 
 export async function quickAnswer(user, message, { now = new Date() } = {}) {

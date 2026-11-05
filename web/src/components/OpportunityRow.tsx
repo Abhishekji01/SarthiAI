@@ -38,8 +38,11 @@ export function FitMeter({ match }: { match: Match }) {
 
 export function OpportunityRow({ o }: { o: Opportunity; showWhy?: boolean }) {
   const money = formatMoney(o.stipend) ?? formatMoney(o.award);
-  const place = o.workMode === 'remote' ? 'Remote' : o.location?.city ?? (o.location?.isNationwide ? 'Across India' : null);
+  const event = o.opportunityType === 'hackathon' || o.opportunityType === 'competition';
+  const place = o.workMode === 'remote' ? (event ? 'Online' : 'Remote') : o.location?.city ?? (o.location?.isNationwide ? 'Across India' : null);
   const marked = Boolean(o.isSaved || o.tracked);
+  // Hackathons and contests: always say where. A prize takes the place's usual spot, so it moves up here.
+  const eventWhere = event && money ? place : null;
   return (
     <Link to={`/opportunity/${o.id}`} className="opp">
       <article className="card">
@@ -47,7 +50,7 @@ export function OpportunityRow({ o }: { o: Opportunity; showWhy?: boolean }) {
           <div className={`opp-mark cat-${categoryOf(o.opportunityType)}`} aria-hidden="true">{initials(o.organization)}</div>
           <div className="grow">
             <p className="opp-org">
-              {TYPE_LABEL[o.opportunityType]} · {o.organization}
+              {TYPE_LABEL[o.opportunityType]} · {o.organization}{eventWhere ? ` · ${eventWhere}` : ''}
               {o.verificationStatus === 'verified' && <span className="ok" aria-label="Verified"> ✓</span>}
             </p>
             <h3 className="opp-title">{o.title}</h3>
@@ -58,7 +61,10 @@ export function OpportunityRow({ o }: { o: Opportunity; showWhy?: boolean }) {
           {money
             ? <span className="opp-amount">{money.length > 40 ? `${money.slice(0, 38)}…` : money}</span>
             : <span className="opp-amount none">{place ?? 'Amount not stated'}</span>}
-          <DeadlineTag o={o} />
+          <span className="row" style={{ gap: 6, flexShrink: 0 }}>
+            {o.nearby && <span className="tag jade">{o.nearby === 'city' ? 'In your city' : 'In your state'}</span>}
+            <DeadlineTag o={o} />
+          </span>
         </div>
         {o.match && <FitMeter match={o.match} />}
       </article>

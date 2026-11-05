@@ -1,10 +1,11 @@
 import { Opportunity, computeAvailability, serializeOpportunity } from '../models/Opportunity.js';
+import { matchesPlace, placeLabel, proximity, PROXIMITY, userPlaces } from '../matching/places.js';
 import { SavedOpportunity } from '../models/SavedOpportunity.js';
 import { Application } from '../models/Application.js';
 import { checkEligibility, degreeMatches } from '../eligibility/engine.js';
 import { scoreOpportunity, rankMatches } from '../matching/engine.js';
 import { rankByQuery } from '../matching/search.js';
-import { assertObjectId, escapeRegex, paginate } from '../utils/http.js';
+import { assertObjectId, paginate } from '../utils/http.js';
 import { notFound } from '../utils/errors.js';
 
 const MAX_CANDIDATES = 500;
@@ -76,10 +77,6 @@ export async function searchOpportunities(user, q, now = new Date()) {
     delete filter.$or;
   }
   // Free text is ranked in memory (synonyms, phrases, typos), not regex-filtered in Mongo.
-  if (q.location) {
-    const rx = new RegExp(escapeRegex(q.location), 'i');
-    and.push({ $or: [{ 'location.city': rx }, { 'location.state': rx }, { 'location.description': rx }, { 'location.isNationwide': true }] });
-  }
   if (q.deadlineWithinDays) {
     filter.deadline = { $gte: now, $lte: new Date(now.getTime() + q.deadlineWithinDays * 86400000) };
   }
@@ -94,6 +91,12 @@ export async function searchOpportunities(user, q, now = new Date()) {
     if (q.availability) return availability === q.availability;
     return q.includeClosed ? true : availability !== 'closed';
   });
+  if (q.location) {
+    // Picking a city for hackathons or contests means events there, not every online one.
+    const strict = q.type === 'hackathon' || q.type === 'competition';
+    docs = docs.filter((o) => matchesPlace(o, q.location, { strict }));
+  }
+  if (q.hasPrize) docs = docs.filter((o) => o.award?.amount != null || o.award?.description);
   if (q.degree) docs = docs.filter((o) => !o.eligibleDegrees?.length || degreeMatches(o.eligibleDegrees, q.degree));
   if (q.year) docs = docs.filter((o) => !o.eligibleYears?.length || o.eligibleYears.includes(q.year));
   if (q.skills?.length) {
@@ -129,7 +132,17 @@ export async function searchOpportunities(user, q, now = new Date()) {
     return row;
   });
 
-  if (q.sort === 'deadline') {
+  const places = userPlaces(user);
+  for (const r of rows) {
+    r.proximity = proximity(r.opportunity, places);
+    r.item.nearby = r.proximity === PROXIMITY.SAME_CITY ? 'city' : r.proximity === PROXIMITY.SAME_STATE ? 'state' : null;
+  }
+
+  if (q.sort === 'nearby') {
+    // Closest first; within the same distance, soonest deadline first.
+    const due = (r) => (r.opportunity.deadline ? new Date(r.opportunity.deadline).getTime() : Infinity);
+    rows.sort((a, b) => b.proximity - a.proximity || due(a) - due(b));
+  } else if (q.sort === 'deadline') {
     rows.sort((a, b) => (a.opportunity.deadline ? new Date(a.opportunity.deadline) : Infinity) - (b.opportunity.deadline ? new Date(b.opportunity.deadline) : Infinity));
   } else if (q.sort === 'recent') {
     rows.sort((a, b) => new Date(b.opportunity.updatedAt) - new Date(a.opportunity.updatedAt));
@@ -138,7 +151,19 @@ export async function searchOpportunities(user, q, now = new Date()) {
   }
 
   const { items, meta } = paginate(rows, q.page, q.limit);
-  return { items: items.map((r) => r.item), meta: textMeta ? { ...meta, search: textMeta } : meta };
+  const nearby = q.sort === 'nearby' ? { places, count: rows.filter((r) => r.item.nearby).length } : undefined;
+  return { items: items.map((r) => r.item), meta: { ...meta, ...(textMeta ? { search: textMeta } : {}), ...(nearby ? { nearby } : {}) } };
+}
+
+/** Cities with open in-person listings of a type, busiest first (for the Discover city picker). */
+export async function inPersonPlaces(user, type, now = new Date()) {
+  const docs = await Opportunity.find({ ...visibilityFilter(user), ...(type ? { opportunityType: type } : {}) }).limit(MAX_CANDIDATES).lean();
+  const counts = new Map();
+  for (const o of docs) {
+    const label = computeAvailability(o, now) === 'closed' ? null : placeLabel(o);
+    if (label) counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts].map(([city, count]) => ({ city, count })).sort((a, b) => b.count - a.count || a.city.localeCompare(b.city));
 }
 
 /**
