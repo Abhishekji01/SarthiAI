@@ -1,0 +1,120 @@
+{
+  "_comment": "Free learning resources for the most-requested skills. Not shown to students until the daily link check (ingest/check_resources.py, run by the Refresh data workflow) confirms the page loads; confirmed ones are written to resources-verified.json and loaded by npm run seed.",
+  "records": [
+    {
+      "title": "SQLBolt",
+      "provider": "SQLBolt",
+      "url": "https://sqlbolt.com/",
+      "skills": [
+        "sql",
+        "databases"
+      ],
+      "cost": "free",
+      "description": "Interactive SQL lessons and exercises in the browser."
+    },
+    {
+      "title": "PostgreSQL Tutorial",
+      "provider": "postgresqltutorial.com",
+      "url": "https://www.postgresqltutorial.com/",
+      "skills": [
+        "sql",
+        "postgresql",
+        "databases"
+      ],
+      "cost": "free",
+      "description": "Step-by-step PostgreSQL and SQL tutorials with examples."
+    },
+    {
+      "title": "Machine Learning Crash Course",
+      "provider": "Google",
+      "url": "https://developers.google.com/machine-learning/crash-course",
+      "skills": [
+        "machine learning"
+      ],
+      "cost": "free",
+      "description": "Google's self-study introduction to machine learning concepts with exercises."
+    },
+    {
+      "title": "Kaggle Learn",
+      "provider": "Kaggle",
+      "url": "https://www.kaggle.com/learn",
+      "skills": [
+        "python",
+        "machine learning",
+        "data science",
+        "sql",
+        "pandas"
+      ],
+      "cost": "free",
+      "description": "Short hands-on courses in Python, pandas, SQL and machine learning."
+    },
+    {
+      "title": "Practical Deep Learning for Coders",
+      "provider": "fast.ai",
+      "url": "https://course.fast.ai/",
+      "skills": [
+        "deep learning",
+        "machine learning"
+      ],
+      "cost": "free",
+      "description": "A practical, code-first deep learning course."
+    },
+    {
+      "title": "The Python Tutorial",
+      "provider": "Python Software Foundation",
+      "url": "https://docs.python.org/3/tutorial/",
+      "skills": [
+        "python"
+      ],
+      "cost": "free",
+      "description": "The official introduction to the Python language."
+    },
+    {
+      "title": "Learn React",
+      "provider": "react.dev",
+      "url": "https://react.dev/learn",
+      "skills": [
+        "react",
+        "javascript",
+        "frontend development"
+      ],
+      "cost": "free",
+      "description": "The official React tutorial and guides."
+    },
+    {
+      "title": "Docker: Get started",
+      "provider": "Docker",
+      "url": "https://docs.docker.com/get-started/",
+      "skills": [
+        "docker",
+        "devops"
+      ],
+      "cost": "free",
+      "description": "Official introduction to containers and Docker."
+    },
+    {
+      "title": "Statistics and probability",
+      "provider": "Khan Academy",
+      "url": "https://www.khanacademy.org/math/statistics-probability",
+      "skills": [
+        "statistics"
+      ],
+      "cost": "free",
+      "description": "Video lessons and practice on statistics and probability."
+    },
+    {
+      "title": "The Odin Project",
+      "provider": "The Odin Project",
+      "url": "https://www.theodinproject.com/",
+      "skills": [
+        "web development",
+        "javascript",
+        "html",
+        "css",
+        "node.js"
+      ],
+      "cost": "free",
+      "description": "A free full-stack web development curriculum."
+    }
+  ]
+}

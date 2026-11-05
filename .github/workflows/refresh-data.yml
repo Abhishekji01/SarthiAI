@@ -1,0 +1,94 @@
+name: Refresh data
+
+# Runs the official-source scrapers (ingest/) on GitHub's runners and commits the
+# snapshot to server/data/scraped/records.json. `npm run seed` loads it.
+on:
+  schedule:
+    - cron: '37 21 * * *'   # 03:07 IST daily
+  workflow_dispatch:
+    inputs:
+      discover:
+        description: Re-scan all candidate job boards for India postings
+        type: boolean
+        default: false
+  push:
+    paths:
+      - 'ingest/**'
+      - '.github/workflows/refresh-data.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-data-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: ingest/requirements.txt
+      - name: Install scraper dependencies
+        run: pip install -r ingest/requirements.txt pytest
+      - name: Unit tests
+        run: cd ingest && python -m pytest -q tests
+      # Weekly: find which of ~11,000 employer job boards have India postings (≈1 hour).
+      - name: Discover India job boards (weekly)
+        run: |
+          f=ingest/boards_india.json
+          # Age from the file's own generatedAt (checkout resets file times).
+          age=$(python -c "import json,datetime as d;g=json.load(open('$f'))['generatedAt'];print((d.datetime.now(d.timezone.utc)-d.datetime.fromisoformat(g)).days)" 2>/dev/null || echo 999)
+          echo "boards_india.json age: $age days"
+          if [ "$age" -ge 7 ] || [ "${{ inputs.discover }}" = "true" ]; then
+            cd ingest && python discover_boards.py --minutes 90
+          else
+            echo "boards_india.json is recent; skipping discovery"
+          fi
+      - name: Scrape official sources
+        run: cd ingest && python run.py | tee run.log
+      - name: Link-check learning resources
+        run: cd ingest && python check_resources.py | tee -a run.log
+      - name: Report
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, collections
+          d = json.load(open('ingest/out/records.json'))
+          print(f"## Scraped {len(d['records'])} records ({d['generatedAt']})\n")
+          c = collections.Counter(r.get('opportunityType', 'dates-only') for r in d['records'])
+          print('| type | count |\n|---|---|')
+          for k, v in c.most_common(): print(f'| {k} | {v} |')
+          print('\n| source | status | count | message |\n|---|---|---|---|')
+          for s in d['sources']: print(f"| {s['id']} | {s['status']} | {s['count']} | {s['message'][:900].replace('|', '/')} |")
+          PY
+      - name: Commit snapshot
+        # The snapshot is regenerated in full each run, so there is nothing to merge: save the new
+        # files, move onto the latest branch tip, put them back, commit, push. Fail loudly if the
+        # push never succeeds (a silent failure here once dropped a whole run's data).
+        run: |
+          mkdir -p /tmp/snapshot
+          cp ingest/out/records.json /tmp/snapshot/records.json
+          [ -f ingest/boards_india.json ] && cp ingest/boards_india.json /tmp/snapshot/boards_india.json || true
+          cp server/data/resources-verified.json /tmp/snapshot/resources-verified.json
+          git config user.name "sarthiai-data-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for i in 1 2 3 4 5; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            git reset --hard "origin/${GITHUB_REF_NAME}"
+            mkdir -p server/data/scraped
+            cp /tmp/snapshot/records.json server/data/scraped/records.json
+            [ -f /tmp/snapshot/boards_india.json ] && cp /tmp/snapshot/boards_india.json ingest/boards_india.json || true
+            cp /tmp/snapshot/resources-verified.json server/data/resources-verified.json
+            git add server/data/scraped/records.json ingest/boards_india.json server/data/resources-verified.json
+            if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+            git commit -m "Refresh scraped opportunities snapshot"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then echo "Pushed"; exit 0; fi
+            sleep $((i * 5))
+          done
+          echo "::error::Could not push the snapshot after 5 attempts"
+          exit 1

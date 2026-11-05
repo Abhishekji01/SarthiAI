@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  server:
+    name: Server tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      # Tests start a throwaway MongoDB (mongodb-memory-server); set MONGODB_TEST_URI to use an existing one.
+      - run: npm test
+
+  web:
+    name: Web app (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sarthiai-web
+          path: web/dist
+
+  android:
+    name: Android APK (debug)
+    runs-on: ubuntu-latest
+    needs: web
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      # The Android SDK is preinstalled on GitHub's Ubuntu runners (ANDROID_HOME).
+      - run: npm ci
+      # Set the repository variable SARTHI_API_URL (e.g. https://your-sarthiai-server) to bake in your API.
+      # Without it the app points at http://10.0.2.2:4000 (a dev server on the emulator's host) and can be changed in-app.
+      - run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.SARTHI_API_URL }}
+      - run: npx cap sync android
+        env:
+          CAP_ALLOW_HTTP: ${{ vars.SARTHI_API_URL == '' && '1' || '0' }}
+      - run: chmod +x android/gradlew && cd android && ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sarthiai-android-debug-apk
+          path: web/android/app/build/outputs/apk/debug/*.apk
+
+  docker:
+    name: Docker image (build + smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the production image
+        run: docker build -t sarthiai .
+      - name: Start MongoDB
+        run: |
+          docker network create sarthi
+          docker run -d --name db --network sarthi mongo:7
+          for i in $(seq 1 45); do
+            docker exec db mongosh --quiet --eval 'db.runCommand({ping:1}).ok' 2>/dev/null | grep -q 1 && { echo "MongoDB ready"; exit 0; }
+            sleep 2
+          done
+          echo "MongoDB did not start"; docker ps -a; docker logs db 2>&1 | tail -40; exit 1
+      - name: Start the app exactly as a host would (seed on start)
+        run: |
+          docker run -d --name app --network sarthi -p 4000:4000 \
+            -e MONGODB_URI=mongodb://db:27017/sarthiai -e JWT_SECRET=ci-smoke-test-secret-0123456789abcdef \
+            -e SEED_ON_START=true -e ENABLE_DAILY_REFRESH=false -e TRUST_PROXY=1 sarthiai
+          for i in $(seq 1 60); do curl -fs localhost:4000/ready >/dev/null && { echo "app ready"; exit 0; }; sleep 2; done
+          echo "app did not become ready"; docker logs app 2>&1 | tail -60; exit 1
+      - name: Smoke test (API, website, data, scraper runtime)
+        run: |
+          curl -fs localhost:4000/ready | tee /dev/stderr | grep -q '"database":"connected"'
+          curl -fs localhost:4000/ | grep -q '<div id="root">'
+          curl -fs localhost:4000/discover | grep -q '<div id="root">'
+          TOKEN=$(curl -fs localhost:4000/api/auth/register -H 'content-type: application/json' \
+            -d '{"name":"CI Smoke","email":"ci.smoke@example.test","password":"ci-password-123"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['token'])")
+          N=$(curl -fs "localhost:4000/api/opportunities?limit=1&includeClosed=true" -H "Authorization: Bearer $TOKEN" | python3 -c "import sys,json;print(json.load(sys.stdin)['meta']['total'])")
+          echo "listings loaded: $N"; [ "$N" -gt 100 ]
+          docker exec app ../ingest/.venv/bin/python -c "import requests, bs4, lxml, pdfplumber; print('scraper runtime ok')"
+      - name: App logs
+        if: always()
+        run: |
+          docker ps -a || true
+          docker logs app 2>&1 | tail -40 || true
+          docker logs db 2>&1 | tail -20 || true
