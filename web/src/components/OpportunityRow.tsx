@@ -38,11 +38,11 @@ export function FitMeter({ match }: { match: Match }) {
 
 export function OpportunityRow({ o }: { o: Opportunity; showWhy?: boolean }) {
   const money = formatMoney(o.stipend) ?? formatMoney(o.award);
-  const place = o.workMode === 'remote' ? 'Remote' : o.location?.city ?? (o.location?.isNationwide ? 'Across India' : null);
+  const event = o.opportunityType === 'hackathon' || o.opportunityType === 'competition';
+  const place = o.workMode === 'remote' ? (event ? 'Online' : 'Remote') : o.location?.city ?? (o.location?.isNationwide ? 'Across India' : null);
   const marked = Boolean(o.isSaved || o.tracked);
-  // Hackathons and contests: always say where, since that decides whether a student can go.
-  const eventWhere = o.opportunityType === 'hackathon' || o.opportunityType === 'competition'
-    ? (o.workMode === 'remote' ? 'Online' : o.location?.city ?? null) : null;
+  // Hackathons and contests: always say where. A prize takes the place's usual spot, so it moves up here.
+  const eventWhere = event && money ? place : null;
   return (
     <Link to={`/opportunity/${o.id}`} className="opp">
       <article className="card">
@@ -61,8 +61,10 @@ export function OpportunityRow({ o }: { o: Opportunity; showWhy?: boolean }) {
           {money
             ? <span className="opp-amount">{money.length > 40 ? `${money.slice(0, 38)}…` : money}</span>
             : <span className="opp-amount none">{place ?? 'Amount not stated'}</span>}
-          {o.nearby && <span className="tag jade">{o.nearby === 'city' ? 'In your city' : 'In your state'}</span>}
-          <DeadlineTag o={o} />
+          <span className="row" style={{ gap: 6, flexShrink: 0 }}>
+            {o.nearby && <span className="tag jade">{o.nearby === 'city' ? 'In your city' : 'In your state'}</span>}
+            <DeadlineTag o={o} />
+          </span>
         </div>
         {o.match && <FitMeter match={o.match} />}
       </article>
