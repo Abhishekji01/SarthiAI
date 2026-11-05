@@ -174,19 +174,34 @@ export function RichText({ text }: { text: string }) {
     return parts.map((p, i) => (p.startsWith('**') && p.endsWith('**') ? <strong key={`${k}${i}`}>{p.slice(2, -2)}</strong>
       : p.length > 2 && p.startsWith('_') && p.endsWith('_') ? <em key={`${k}${i}`}>{p.slice(1, -1)}</em> : p));
   };
+  // "**Title** — details" reads as a title with its details on the line below.
+  const sentence = (s: string) => s.replace(/(^|[.·]\s+)([a-z])/g, (_, a: string, c: string) => a + c.toUpperCase());
+  const item = (s: string, k: string) => {
+    const m = s.match(/^\*\*([^*]+?):?\*\*\s*(?:[—–:-]\s+|$)(.*)$/) ;
+    if (!m) return inline(s, k);
+    return (
+      <>
+        <strong className="rt-title">{m[1]}</strong>
+        {m[2] && <span className="rt-detail">{inline(sentence(m[2]), k)}</span>}
+      </>
+    );
+  };
   return (
     <>
       {blocks.map((b, bi) => {
         const lines = b.split('\n').filter((l) => l.trim());
+        const heading = lines.length === 1 && lines[0].match(/^#{1,6}\s+(.*)$/);
+        if (heading) return <h4 key={bi} className="rt-heading">{inline(heading[1], `${bi}h`)}</h4>;
+        if (lines.length === 1 && /^_[^_]+_$/.test(lines[0].trim())) return <p key={bi} className="rt-note">{lines[0].trim().slice(1, -1)}</p>;
         const bullets = lines.filter((l) => /^\s*([•\-*]|\d+[.)])\s+/.test(l));
         if (bullets.length && bullets.length === lines.length - (/:$/.test(lines[0]) ? 1 : 0)) {
           const intro = bullets.length < lines.length ? lines[0] : null;
           const ordered = /^\s*\d/.test(bullets[0]);
-          const items = bullets.map((l, i) => <li key={i}>{inline(l.replace(/^\s*([•\-*]|\d+[.)])\s+/, ''), `${bi}-${i}-`)}</li>);
+          const items = bullets.map((l, i) => <li key={i}>{item(l.replace(/^\s*([•\-*]|\d+[.)])\s+/, ''), `${bi}-${i}-`)}</li>);
           return (
             <div key={bi}>
-              {intro && <p style={{ marginBottom: 4 }}>{inline(intro, `${bi}i`)}</p>}
-              {ordered ? <ol>{items}</ol> : <ul>{items}</ul>}
+              {intro && <p className="rt-intro">{inline(intro, `${bi}i`)}</p>}
+              {ordered ? <ol className="rt-list">{items}</ol> : <ul className="rt-list">{items}</ul>}
             </div>
           );
         }

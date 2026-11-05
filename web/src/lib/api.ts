@@ -77,7 +77,7 @@ const del = <T>(path: string, body?: unknown) => request<T>('DELETE', path, { bo
 
 export interface OpportunityQuery {
   q?: string; type?: string; workMode?: string; location?: string; verifiedOnly?: boolean; includeClosed?: boolean;
-  campusOnly?: boolean; mentions?: boolean; deadlineWithinDays?: number; sort?: 'relevance' | 'deadline' | 'recent'; page?: number; limit?: number;
+  campusOnly?: boolean; mentions?: boolean; deadlineWithinDays?: number; hasPrize?: boolean; sort?: 'relevance' | 'deadline' | 'recent' | 'nearby'; page?: number; limit?: number;
 }
 export type ProfilePatch = { name?: string; profile?: Partial<Profile> & { customCollegeName?: string }; notificationPrefs?: Partial<User['notificationPrefs']>; completeOnboarding?: boolean };
 
@@ -94,6 +94,7 @@ export const api = {
   colleges: (q?: string) => get<College[]>('/colleges', { q }),
 
   opportunities: (q: OpportunityQuery) => getWithMeta<Opportunity[]>('/opportunities', q as Query) as Promise<{ data: Opportunity[]; meta: PageMeta }>,
+  eventPlaces: (type: string) => get<{ city: string; count: number }[]>(`/opportunities/places?type=${encodeURIComponent(type)}`),
   opportunity: (id: string) => get<Opportunity>(`/opportunities/${id}`),
   save: (id: string) => post(`/opportunities/${id}/save`),
   unsave: (id: string) => del(`/opportunities/${id}/save`),

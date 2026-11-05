@@ -22,6 +22,8 @@ export interface EligibilityRule {
   sourceExcerpt: string | null; note: string | null; restrictsAudience: boolean;
 }
 export interface Opportunity {
+  /** Set when an in-person listing is in the student's city or state. */
+  nearby?: 'city' | 'state' | null;
   id: string;
   title: string;
   organization: string;
@@ -66,7 +68,7 @@ export interface Opportunity {
   searchMatch?: { relevance: number; matchedTerms: string[]; approximate: boolean };
 }
 
-export interface PageMeta { page: number; limit: number; total: number; totalPages: number; search?: { relaxed: boolean; terms: string[]; closedMatches?: number; hiddenMentions?: number } }
+export interface PageMeta { page: number; limit: number; total: number; totalPages: number; nearby?: { places: string[]; count: number }; search?: { relaxed: boolean; terms: string[]; closedMatches?: number; hiddenMentions?: number } }
 
 export interface Criterion {
   key: string; kind: string; requirement: string; mandatory: boolean; studentValue: string | null;

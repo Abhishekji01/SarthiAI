@@ -339,3 +339,30 @@ select.input { background-image: linear-gradient(45deg, transparent 50%, var(--i
 .table th, .table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
 .table th { font-size: 12px; font-weight: 600; color: var(--ink-3); }
 .scroll-x { overflow-x: auto; }
+
+/* Quick filters under the type chips (Discover) */
+.quick-filters { margin-top: 8px; }
+.quick-filters .chip svg { flex-shrink: 0; }
+.chip-select { appearance: none; padding-right: 26px; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%; background-size: 5px 5px; background-repeat: no-repeat; }
+.chip-clear { background: transparent; border-color: transparent; color: var(--accent); }
+
+/* Sarthi's answers: a clean reading font, each result on its own */
+.bubble.assistant { line-height: 1.6; width: min(100%, 680px); max-width: 100%; padding: 16px 18px; }
+.bubble.assistant p { margin: 0 0 12px; }
+.bubble.assistant .rt-intro { font-weight: 600; margin: 0 0 4px; }
+.bubble.assistant .rt-heading { font-family: inherit; font-size: 15px; font-weight: 600; margin: 14px 0 6px; }
+.bubble.assistant .rt-note { font-size: 12.5px; color: var(--ink-3); margin: 0; }
+.bubble.assistant ul.rt-list { list-style: none; padding: 0; }
+.bubble.assistant ol.rt-list { padding-left: 22px; }
+.rt-list { margin: 0 0 14px; }
+.rt-list li { padding: 9px 0; }
+.rt-list li + li { border-top: 1px solid var(--rule); }
+.rt-title { display: block; font-weight: 600; color: var(--ink); }
+.rt-detail { display: block; margin-top: 2px; font-size: 14px; color: var(--ink-2); }
+
+/* Show every filter on wide screens instead of hiding some off to the side */
+@media (min-width: 900px) {
+  .quick-filters.chips.scroll { flex-wrap: wrap; overflow-x: visible; margin: 8px 0 0; padding: 0; }
+}
+/* Keep the end of an answer clear of the message box */
+.chat > div:last-child { scroll-margin-bottom: 96px; }
