@@ -25,3 +25,7 @@ __pycache__/
 local.properties
 
 .DS_Store
+
+# Test output
+web/test-results/
+web/playwright-report/

@@ -38,6 +38,11 @@ export async function seedAll({ dryRun = false } = {}) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dryRun = process.argv.includes('--dry');
   await connectDatabase(env.MONGODB_URI);
+  // End-to-end tests start from an empty database. Needs both the flag and E2E_RESET_DB=true.
+  if (process.argv.includes('--reset') && process.env.E2E_RESET_DB === 'true') {
+    const { default: mongoose } = await import('mongoose');
+    await mongoose.connection.dropDatabase();
+  }
   const report = await seedAll({ dryRun });
   console.log(JSON.stringify(report, null, 2));
   await disconnectDatabase();
