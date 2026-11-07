@@ -36,6 +36,10 @@ export const forgotPasswordSchema = z.object({
   email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
 });
 
+export const verifyEmailSchema = z.object({
+  token: z.string().trim().regex(/^[A-Za-z0-9_-]{32,128}$/, 'This confirmation link is invalid or has expired.'),
+});
+
 export const resetPasswordSchema = z.object({
   token: z.string().trim().regex(/^[A-Za-z0-9_-]{32,128}$/, 'This reset link is invalid or has expired.'),
   password: passwordSchema,

@@ -72,6 +72,15 @@ const userSchema = new Schema(
     adminCollegeIds: [{ type: Schema.Types.ObjectId, ref: 'College' }],
     // Incremented on logout / password change to revoke all issued tokens.
     tokenVersion: { type: Number, default: 0 },
+    // Set when the student opens the emailed confirmation link (or signs in with Google).
+    emailVerifiedAt: { type: Date, default: null },
+    emailVerification: {
+      type: new Schema({ tokenHash: String, expiresAt: Date }, { _id: false }),
+      default: undefined,
+      select: false,
+    },
+    // Google account id, when the student signs in with Google.
+    googleSub: { type: String, default: undefined, select: false },
     // Single-use password reset: only a SHA-256 hash of the emailed token is stored.
     passwordReset: {
       type: new Schema({ tokenHash: String, expiresAt: Date }, { _id: false }),
@@ -91,6 +100,8 @@ const userSchema = new Schema(
 
 userSchema.index({ 'profile.collegeId': 1 });
 userSchema.index({ 'passwordReset.tokenHash': 1 }, { sparse: true });
+userSchema.index({ 'emailVerification.tokenHash': 1 }, { sparse: true });
+userSchema.index({ googleSub: 1 }, { unique: true, sparse: true });
 
 export const User = mongoose.model('User', userSchema);
 
@@ -106,6 +117,7 @@ export function serializeUser(user) {
     profile: { ...u.profile, collegeId: u.profile?.collegeId ? String(u.profile.collegeId) : null },
     notificationPrefs: u.notificationPrefs,
     onboardingCompletedAt: u.onboardingCompletedAt ?? null,
+    emailVerified: Boolean(u.emailVerifiedAt),
     createdAt: u.createdAt,
   };
 }

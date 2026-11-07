@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useSession } from '../lib/session';
 import { IconBriefcase, IconChat, IconCompass, IconHome, IconMegaphone, IconRoute, IconUser } from './icons';
 import { Wordmark } from './ui';
+import { VerifyEmailBanner } from './VerifyEmailBanner';
 
 /** Phone: 5 tabs in a floating dark bar (Roadmap included, as on desktop). Profile is reached from the avatar on Home. */
 const TABS = [
@@ -27,6 +28,7 @@ export function Layout() {
         <NavLink to="/profile"><IconUser /> {user?.name.split(' ')[0] ?? 'Profile'}</NavLink>
       </nav>
       <main className="main">
+        <VerifyEmailBanner />
         <Outlet />
       </main>
       <nav className="tabbar" aria-label="Main">

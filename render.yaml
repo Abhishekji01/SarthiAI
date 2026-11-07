@@ -30,3 +30,10 @@ services:
         sync: false
       - key: MAIL_FROM
         sync: false
+      # Google sign-in: set to "true" once GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are added.
+      - key: FEATURE_GOOGLE_SIGNIN
+        value: "false"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false

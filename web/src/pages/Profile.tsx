@@ -15,7 +15,7 @@ import { usePageTitle } from '../lib/usePageTitle';
 export function ProfilePage() {
   usePageTitle('Profile');
   const user = useUser();
-  const { signOut, setUser } = useSession();
+  const { signOut, signOutEverywhere, setUser } = useSession();
   const toast = useToast();
   const navigate = useNavigate();
   const p = user.profile;
@@ -95,6 +95,7 @@ export function ProfilePage() {
 
       <section className="section">
         <button className="btn block ghost" onClick={async () => { await signOut(); navigate('/welcome'); }}>Sign out</button>
+        <button className="btn block ghost" style={{ marginTop: 10 }} onClick={async () => { try { await signOutEverywhere(); navigate('/welcome'); } catch (e) { toast((e as Error).message); } }}>Sign out of all devices</button>
         <button className="btn block danger" style={{ marginTop: 10 }} onClick={() => setDeleteOpen(true)}>Delete account</button>
         <p className="tiny faint" style={{ textAlign: 'center', marginTop: 16 }}>SarthiAI · {platform === 'android' ? 'Android app' : 'Web app'}</p>
       </section>

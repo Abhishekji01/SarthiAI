@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { User } from '../models/User.js';
+import { Session } from '../models/Session.js';
 import { verifyToken } from '../auth/tokens.js';
 import { forbidden, unauthorized } from '../utils/errors.js';
 import { csrfOk, readCookie, SESSION_COOKIE } from '../auth/session.js';
@@ -30,10 +31,18 @@ export async function requireAuth(req, _res, next) {
     throw unauthorized('Your session has expired. Please sign in again.');
   }
   if (!mongoose.isValidObjectId(payload.sub)) throw unauthorized();
-  const user = await User.findById(payload.sub);
+  const [user, session] = await Promise.all([
+    User.findById(payload.sub),
+    payload.sid && mongoose.isValidObjectId(payload.sid) ? Session.findById(payload.sid).lean() : null,
+  ]);
   if (!user || (user.tokenVersion ?? 0) !== payload.ver) {
     throw unauthorized('Your session has ended. Please sign in again.');
   }
+  // Tokens from this version carry a device session id; that device may have been signed out.
+  if (payload.sid && (!session || session.revokedAt || String(session.userId) !== String(user._id))) {
+    throw unauthorized('Your session has ended. Please sign in again.');
+  }
+  req.sessionId = payload.sid ?? null;
   req.user = user;
   next();
 }

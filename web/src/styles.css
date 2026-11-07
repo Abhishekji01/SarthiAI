@@ -376,3 +376,12 @@ html:has(.no-nav .bottom-bar) { scroll-padding-bottom: calc(var(--footer-h) + va
 }
 /* Keep the end of an answer clear of the message box */
 .chat > div:last-child { scroll-margin-bottom: 96px; }
+
+/* Password strength (3 bars) */
+.strength { display: inline-flex; gap: 3px; }
+.strength i { width: 18px; height: 4px; border-radius: 2px; background: var(--rule); }
+.strength-weak i:nth-child(1) { background: var(--coral); }
+.strength-fair i:nth-child(-n+2) { background: var(--amber); }
+.strength-strong i { background: var(--jade); }
+/* Verify-email banner */
+.banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 auto 12px; max-width: 760px; }

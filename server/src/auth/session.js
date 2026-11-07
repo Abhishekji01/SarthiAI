@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { issueToken } from './tokens.js';
+import { Session } from '../models/Session.js';
 
 /**
  * Two ways to hold a session:
@@ -21,11 +22,18 @@ const cookieOptions = (req) => ({
   path: '/api',
 });
 
-/** Starts a session: sets the cookie for the web app, or returns a bearer token. */
-export function startSession(req, res, user) {
-  const token = issueToken(user);
-  if (!wantsCookie(req)) return { token, session: 'bearer' };
+/**
+ * Starts a session on this device: records it (so it can be signed out on its
+ * own), then sets the cookie for the web app or returns a bearer token.
+ */
+export async function startSession(req, res, user, { forceCookie = false } = {}) {
+  const kind = forceCookie || wantsCookie(req) ? 'cookie' : 'bearer';
+  const session = new Session({ userId: user._id, kind, userAgent: String(req.get('user-agent') ?? '').slice(0, 200), expiresAt: new Date() });
+  const token = issueToken(user, { sid: session._id });
   const exp = jwt.decode(token)?.exp;
+  session.expiresAt = new Date(exp * 1000);
+  await session.save();
+  if (kind === 'bearer') return { token, session: 'bearer' };
   res.cookie(SESSION_COOKIE, token, { ...cookieOptions(req), maxAge: exp ? exp * 1000 - Date.now() : undefined });
   return { token: null, session: 'cookie' };
 }
@@ -65,4 +73,18 @@ export function csrfOk(req, allowedOrigins = []) {
   } catch {
     return false;
   }
+}
+
+/** Signs out one device. */
+export async function revokeSession(sid) {
+  if (sid) await Session.updateOne({ _id: sid }, { $set: { revokedAt: new Date() } });
+}
+
+/** Signs out every device: all session records, plus any older token without a session id. */
+export async function revokeAllSessions(userId) {
+  const { User } = await import('../models/User.js');
+  await Promise.all([
+    Session.updateMany({ userId, revokedAt: null }, { $set: { revokedAt: new Date() } }),
+    User.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } }),
+  ]);
 }

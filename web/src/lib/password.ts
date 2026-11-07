@@ -8,3 +8,14 @@ export function passwordProblems(p: string): string[] {
   else if (COMMON.has(p.trim().toLowerCase())) out.push('This password is too common.');
   return out;
 }
+
+/** Rough strength for the hint under a new password (the server enforces the rules). */
+export function passwordStrength(p: string): 'weak' | 'fair' | 'strong' {
+  if (passwordProblems(p).length) return 'weak';
+  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(p)).length;
+  const unique = new Set(p).size;
+  if (p.length >= 14 && unique >= 8) return 'strong';
+  if (p.length >= 10 && classes >= 3 && unique >= 6) return 'strong';
+  if (p.length >= 10 || classes >= 3) return 'fair';
+  return 'weak';
+}

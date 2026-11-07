@@ -36,6 +36,10 @@ const schema = z.object({
   MAIL_FROM: z.string().optional(),
   // Development/e2e only: also append outgoing emails to this file.
   MAIL_OUTBOX_FILE: z.string().optional(),
+  // Google sign-in (OpenID Connect). Off unless the flag is true AND both credentials are set.
+  FEATURE_GOOGLE_SIGNIN: z.enum(['true', 'false']).default('false'),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 });

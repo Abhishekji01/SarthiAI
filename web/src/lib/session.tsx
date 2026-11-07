@@ -14,6 +14,7 @@ interface SessionValue {
   signIn: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signOutEverywhere: () => Promise<void>;
   /** Signs in with a token the server just issued (e.g. after a password reset). */
   adoptSession: (token: string | null, user: User) => Promise<void>;
   setUser: (u: User) => void;
@@ -94,12 +95,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     syncReminders(user).catch(() => {});
   }, []);
 
+  const signOutEverywhere = useCallback(async () => {
+    await api.logoutAll();
+    markSessionActive(false);
+    await setToken(null);
+    setState({ status: 'signedOut', notice: 'You are signed out on every device.' });
+  }, []);
+
   const setUser = useCallback((user: User) => setState({ status: 'signedIn', user }), []);
   const refreshUser = useCallback(async () => setUser(await api.me()), [setUser]);
 
   const value = useMemo<SessionValue>(() => ({
-    state, user: state.status === 'signedIn' ? state.user : null, signIn, register, signOut, adoptSession, setUser, refreshUser,
-  }), [state, signIn, register, signOut, adoptSession, setUser, refreshUser]);
+    state, user: state.status === 'signedIn' ? state.user : null, signIn, register, signOut, signOutEverywhere, adoptSession, setUser, refreshUser,
+  }), [state, signIn, register, signOut, signOutEverywhere, adoptSession, setUser, refreshUser]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

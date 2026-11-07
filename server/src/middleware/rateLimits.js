@@ -59,3 +59,10 @@ export const resetPasswordEmailLimiter = rateLimit({
   keyGenerator: (req) => `reset:${req.resetEmail ?? 'unknown'}`, skip: (req) => isDisabled() || !req.resetEmail,
   handler: json('Too many attempts for this account. Request a new link later.'),
 });
+
+/** Resending the confirmation email: 3 per hour per account. */
+export const verifyResendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, limit: 3, standardHeaders: 'draft-7', legacyHeaders: false,
+  keyGenerator: (req) => `verify:${req.user?._id ?? ip(req)}`, skip: isDisabled,
+  handler: json('Confirmation email already sent a few times. Check your inbox and spam folder, or try again later.'),
+});

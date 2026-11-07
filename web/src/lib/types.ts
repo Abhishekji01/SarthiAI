@@ -116,6 +116,7 @@ export interface User {
   profile: Profile;
   notificationPrefs: { deadlineReminders: boolean; reminderDaysBefore: number; campusAnnouncements: boolean };
   onboardingCompletedAt: string | null;
+  emailVerified?: boolean;
   createdAt: string;
 }
 

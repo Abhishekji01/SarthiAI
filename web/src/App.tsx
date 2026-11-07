@@ -14,6 +14,7 @@ import { OpportunityDetail } from './pages/OpportunityDetail';
 import { ResetPassword } from './pages/ResetPassword';
 import { NotFound } from './pages/NotFound';
 import { PublicOpportunity } from './pages/PublicOpportunity';
+import { VerifyEmail } from './pages/VerifyEmail';
 import { safeNext, welcomeWithNext } from './lib/next';
 
 // Less-used screens load on demand to keep first paint fast on phones.
@@ -82,6 +83,7 @@ export function App() {
       <Routes>
         <Route path="/welcome" element={<Welcome notice={state.notice} networkError={state.networkError} />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         {/* Shared links work without an account. */}
         <Route path="/opportunity/:id" element={<PublicOpportunity />} />
         {/* App screens need an account: sign in, then come back here. Anything else is a 404. */}
@@ -96,6 +98,7 @@ export function App() {
       <Routes>
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route element={<Layout />}>
           <Route index element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <Home />} />
           <Route path="discover" element={<Discover />} />
