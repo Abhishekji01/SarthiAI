@@ -5,7 +5,7 @@ import { syncReminders } from './reminders';
 
 type SessionState =
   | { status: 'loading' }
-  | { status: 'signedOut'; notice?: string }
+  | { status: 'signedOut'; notice?: string; networkError?: boolean }
   | { status: 'signedIn'; user: User };
 
 interface SessionValue {
@@ -40,7 +40,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setState({ status: 'signedOut', notice: 'Your session expired. Please sign in again.' });
         } else {
           // Offline or server unreachable: keep the token, show the error on sign-in screen.
-          setState({ status: 'signedOut', notice: e instanceof Error ? e.message : 'Could not restore your session.' });
+          setState({ status: 'signedOut', notice: e instanceof Error ? e.message : 'Could not restore your session.', networkError: e instanceof ApiError && e.code === 'NETWORK' });
         }
       }
     })();

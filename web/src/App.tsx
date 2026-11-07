@@ -59,7 +59,7 @@ export function App() {
   if (state.status === 'signedOut') {
     return (
       <Routes>
-        <Route path="/welcome" element={<Welcome notice={state.notice} />} />
+        <Route path="/welcome" element={<Welcome notice={state.notice} networkError={state.networkError} />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     );

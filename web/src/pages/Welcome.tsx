@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useSession } from '../lib/session';
-import { ApiError, getServerUrl, setServerUrl } from '../lib/api';
-import { isNative } from '../lib/platform';
+import { ApiError, serverOverrideAllowed } from '../lib/api';
 import { Field, LogoMark, Sheet } from '../components/ui';
+import { NetworkErrorActions, ServerSettings } from '../components/ServerSettings';
 import { IconCheck, IconSettings } from '../components/icons';
 
 const POINTS = [
@@ -11,7 +11,7 @@ const POINTS = [
   'Sarthi, an AI guide that only answers from real data',
 ];
 
-export function Welcome({ notice }: { notice?: string }) {
+export function Welcome({ notice, networkError }: { notice?: string; networkError?: boolean }) {
   const { signIn, register } = useSession();
   const [mode, setMode] = useState<'start' | 'signin' | 'register'>('start');
   const [name, setName] = useState('');
@@ -20,7 +20,6 @@ export function Welcome({ notice }: { notice?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [serverOpen, setServerOpen] = useState(false);
-  const [server, setServer] = useState(getServerUrl());
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -41,7 +40,7 @@ export function Welcome({ notice }: { notice?: string }) {
       <div className="auth-card">
         <div className="row between">
           <div className="hero-mark"><LogoMark size={72} /></div>
-          {isNative && <button className="icon-btn" aria-label="Server settings" onClick={() => setServerOpen(true)}><IconSettings size={18} /></button>}
+          {serverOverrideAllowed && <button className="icon-btn" aria-label="Server settings" onClick={() => setServerOpen(true)}><IconSettings size={18} /></button>}
         </div>
         <p className="faint">SarthiAI</p>
         <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em' }}>Your future,<br />guided.</h1>
@@ -55,7 +54,7 @@ export function Welcome({ notice }: { notice?: string }) {
                 </li>
               ))}
             </ul>
-            {notice && <div className="notice amber" style={{ marginBottom: 16 }}>{notice}</div>}
+            {notice && <div className="notice amber" role="alert" style={{ marginBottom: 16 }}><span className="grow">{notice}</span>{networkError && <NetworkErrorActions onRetry={() => window.location.reload()} />}</div>}
             <div className="stack">
               <button className="btn block" onClick={() => setMode('register')}>Create a free account</button>
               <button className="btn block ghost" onClick={() => setMode('signin')}>I already have an account</button>
@@ -63,7 +62,7 @@ export function Welcome({ notice }: { notice?: string }) {
           </>
         ) : (
           <form onSubmit={submit} style={{ marginTop: 20 }} noValidate>
-            {notice && mode === 'signin' && <div className="notice amber" style={{ marginBottom: 16 }}>{notice}</div>}
+            {notice && mode === 'signin' && <div className="notice amber" role="alert" style={{ marginBottom: 16 }}><span className="grow">{notice}</span>{networkError && <NetworkErrorActions onRetry={() => window.location.reload()} />}</div>}
             {mode === 'register' && (
               <Field label="Full name"><input className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required /></Field>
             )}
@@ -85,12 +84,11 @@ export function Welcome({ notice }: { notice?: string }) {
           </form>
         )}
       </div>
-      <Sheet open={serverOpen} onClose={() => setServerOpen(false)} title="Server">
-        <Field label="SarthiAI server URL" hint="Your SarthiAI API, e.g. https://sarthiai.example.com. The Android emulator reaches a server on your computer at http://10.0.2.2:4000.">
-          <input className="input" inputMode="url" value={server} onChange={(e) => setServer(e.target.value)} />
-        </Field>
-        <button className="btn block" onClick={async () => { await setServerUrl(server); setServerOpen(false); }}>Save</button>
-      </Sheet>
+      {serverOverrideAllowed && (
+        <Sheet open={serverOpen} onClose={() => setServerOpen(false)} title="Server (developer)">
+          <ServerSettings />
+        </Sheet>
+      )}
     </div>
   );
 }

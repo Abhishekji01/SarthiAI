@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, DEFAULT_SERVER_URL, getServerUrl, setServerUrl } from '../lib/api';
+import { api, serverOverrideAllowed } from '../lib/api';
+import { ServerSettings } from '../components/ServerSettings';
 import { useSession, useUser } from '../lib/session';
 import { isNative, platform, reminderPermission, requestReminderPermission, type ReminderPermission } from '../lib/platform';
 import { syncReminders } from '../lib/reminders';
@@ -63,7 +64,7 @@ export function ProfilePage() {
           <li><Link to="/drafts" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconDoc size={20} /> <span className="grow">Drafts</span> ›</Link></li>
           {isAdmin && <li><Link to="/admin" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconMegaphone size={20} /> <span className="grow">Campus admin</span> ›</Link></li>}
           <li><button className="row" style={{ padding: '14px 0', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setPrivacyOpen(true)}><IconShield size={20} /> <span className="grow" style={{ textAlign: 'left' }}>Privacy & data</span> ›</button></li>
-          <li><button className="row" style={{ padding: '14px 0', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setDevOpen(true)}><IconSettings size={20} /> <span className="grow" style={{ textAlign: 'left' }}>Developer · server</span> ›</button></li>
+          {serverOverrideAllowed && <li><button className="row" style={{ padding: '14px 0', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setDevOpen(true)}><IconSettings size={20} /> <span className="grow" style={{ textAlign: 'left' }}>Developer · server</span> ›</button></li>}
         </ul>
       </section>
 
@@ -104,26 +105,16 @@ export function ProfilePage() {
           <li>Deleting your account permanently removes your profile, saved items, applications, roadmap and drafts.</li>
         </ul>
       </Sheet>
-      <DevSheet open={devOpen} onClose={() => setDevOpen(false)} />
+      {serverOverrideAllowed && <DevSheet open={devOpen} onClose={() => setDevOpen(false)} />}
       <DeleteSheet open={deleteOpen} onClose={() => setDeleteOpen(false)} />
     </div>
   );
 }
 
 function DevSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const toast = useToast();
-  const [url, setUrl] = useState(getServerUrl());
-  const [status, setStatus] = useState<string | null>(null);
   return (
     <Sheet open={open} onClose={onClose} title="Developer · server">
-      <Field label="API server URL" hint={`Leave empty to use the default${DEFAULT_SERVER_URL ? ` (${DEFAULT_SERVER_URL})` : ' (this website)'}. Android emulator → your computer: http://10.0.2.2:4000`}>
-        <input className="input" inputMode="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={DEFAULT_SERVER_URL || window.location.origin} />
-      </Field>
-      <div className="row">
-        <button className="btn ghost" onClick={async () => { setStatus('Checking…'); await setServerUrl(url || DEFAULT_SERVER_URL); setStatus((await api.health()) ? 'Server reachable ✓' : 'Could not reach that server.'); }}>Test</button>
-        <button className="btn grow" onClick={async () => { await setServerUrl(url || DEFAULT_SERVER_URL); toast('Server saved — restart the app if you switched servers'); onClose(); }}>Save</button>
-      </div>
-      {status && <p className="small" style={{ marginTop: 10 }}>{status}</p>}
+      <ServerSettings onSaved={onClose} />
     </Sheet>
   );
 }

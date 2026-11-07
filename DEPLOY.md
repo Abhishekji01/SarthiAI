@@ -65,7 +65,8 @@ The `Dockerfile` works anywhere Docker runs (Railway, Fly.io, a VPS). Set the sa
 2. GitHub → **Actions → CI → Run workflow** (or push any commit). When it finishes, download the
    **`sarthiai-android-debug-apk`** artifact, unzip it, and install the `.apk` on a phone
    (allow "install unknown apps" when Android asks).
-3. The app now talks to your server. (Users can also change the server in **Profile → Developer · server**.)
+3. The app now talks to your server. The **Profile → Developer · server** setting only exists in builds made without
+   `SARTHI_API_URL` (or with `VITE_DEV_SERVER_SETTING=1`), so students using your build cannot point it at another server.
 
 ### Publishing on Google Play (later)
 The CI APK is a *debug* build for testing. For the Play Store:

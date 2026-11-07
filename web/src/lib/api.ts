@@ -4,29 +4,56 @@ import type {
   NextMove, Opportunity, PageMeta, Profile, Resource, Roadmap, User,
 } from './types';
 
+import { buildFlags, resolveBaseUrl, shouldAttachToken, trimUrl } from './serverConfig';
+
 /**
  * API base URL:
  *  - browser build served by the SarthiAI server: same origin ('')
- *  - Android app: VITE_API_BASE_URL at build time, or the URL set in Profile ▸ Developer
- *    (Android emulator reaches a dev server on your computer at http://10.0.2.2:4000)
+ *  - Android app: VITE_API_BASE_URL at build time
+ *  - dev builds only: a custom server set in Profile ▸ Developer (see serverConfig.ts).
+ *    The Android emulator reaches a dev server on your computer at http://10.0.2.2:4000.
  */
 const SERVER_KEY = 'sarthi.serverUrl';
 const TOKEN_KEY = 'sarthi.token';
 const BUILD_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
 export const DEFAULT_SERVER_URL = BUILD_URL || (isNative ? 'http://10.0.2.2:4000' : '');
+export const serverOverrideAllowed = buildFlags.overrideAllowed;
 
 let baseUrl = DEFAULT_SERVER_URL;
 let token: string | null = null;
 
 export async function loadClientState() {
-  baseUrl = ((await storage.get(SERVER_KEY)) ?? DEFAULT_SERVER_URL).replace(/\/+$/, '');
+  const { baseUrl: resolved, clearStored } = resolveBaseUrl(await storage.get(SERVER_KEY), DEFAULT_SERVER_URL);
+  // A stale or disallowed override (e.g. saved by an older version) is removed so the app recovers by itself.
+  if (clearStored) await storage.set(SERVER_KEY, null);
+  baseUrl = resolved;
   token = await storage.get(TOKEN_KEY);
   return { hasToken: Boolean(token), baseUrl };
 }
 export const getServerUrl = () => baseUrl;
+/** True while a developer server override is in effect. */
+export const usingCustomServer = () => baseUrl !== DEFAULT_SERVER_URL;
 export async function setServerUrl(url: string) {
-  baseUrl = url.trim().replace(/\/+$/, '');
+  if (!serverOverrideAllowed) return;
+  baseUrl = trimUrl(url) || DEFAULT_SERVER_URL;
   await storage.set(SERVER_KEY, baseUrl === DEFAULT_SERVER_URL ? null : baseUrl);
+}
+/** Clears any custom server and reloads the app on the default one. */
+export async function resetServerUrl(reload: () => void = () => window.location.reload()) {
+  baseUrl = DEFAULT_SERVER_URL;
+  await storage.set(SERVER_KEY, null);
+  reload();
+}
+/** Checks a server before it is saved. Never sends the session token. */
+export async function probeServer(url: string) {
+  try {
+    const res = await fetch(`${trimUrl(url)}/health`, { credentials: 'omit' });
+    if (!res.ok) return false;
+    const body = await res.json().catch(() => null);
+    return body?.status === 'ok';
+  } catch {
+    return false;
+  }
 }
 export async function setToken(t: string | null) {
   token = t;
@@ -53,11 +80,11 @@ async function request<T>(method: string, path: string, { body, query }: { body?
   try {
     res = await fetch(`${baseUrl}/api${path}${qs === '?' ? '' : qs}`, {
       method,
-      headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token && shouldAttachToken(baseUrl, DEFAULT_SERVER_URL) ? { Authorization: `Bearer ${token}` } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError(0, 'NETWORK', navigator.onLine === false ? 'You are offline. Check your connection and try again.' : `Cannot reach the SarthiAI server${baseUrl ? ` at ${baseUrl}` : ''}. Check your connection or the server URL in Profile ▸ Developer.`);
+    throw new ApiError(0, 'NETWORK', navigator.onLine === false ? 'You are offline. Check your connection and try again.' : usingCustomServer() ? `Cannot reach the SarthiAI server at ${baseUrl}. Check your connection, or reset to the default server.` : 'Cannot reach the SarthiAI server. Check your connection and try again.');
   }
   let json: any = null;
   try { json = await res.json(); } catch { /* empty body */ }

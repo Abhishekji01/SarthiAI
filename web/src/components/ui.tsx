@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconBack, IconX } from './icons';
+import { ApiError } from '../lib/api';
+import { NetworkErrorActions } from './ServerSettings';
 
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
@@ -107,7 +109,9 @@ export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => v
   return (
     <div className="notice coral" role="alert">
       <div className="grow">{error.message}</div>
-      {onRetry && <button className="btn small danger" onClick={onRetry}>Retry</button>}
+      {error instanceof ApiError && error.code === 'NETWORK'
+        ? <NetworkErrorActions onRetry={onRetry} />
+        : onRetry && <button className="btn small danger" onClick={onRetry}>Retry</button>}
     </div>
   );
 }
