@@ -105,6 +105,12 @@ export interface Profile {
   workModes?: ('remote' | 'hybrid' | 'onsite')[];
   homeState?: string;
   annualFamilyIncomeINR?: number;
+  gender?: 'female' | 'male' | 'other';
+  socialCategory?: 'general' | 'obc' | 'sc' | 'st' | 'ews';
+  disability?: boolean;
+  minority?: boolean;
+  parentService?: 'none' | 'capf' | 'railways' | 'defence' | 'state_police';
+  firstGeneration?: boolean;
   links?: { github?: string; linkedin?: string; portfolio?: string };
 }
 export interface User {

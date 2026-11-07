@@ -84,6 +84,12 @@ export const profilePatchSchema = z.object({
     preferredLocations: z.array(line(60).pipe(z.string().min(1))).max(10).optional(),
     workModes: z.array(z.enum(['remote', 'hybrid', 'onsite'])).max(3).optional(),
     homeState: z.union([str(60).refine(isHomeStateOption, 'Choose a state or union territory from the list'), z.null()]).optional(),
+    gender: z.union([z.enum(['female', 'male', 'other']), z.null()]).optional(),
+    socialCategory: z.union([z.enum(['general', 'obc', 'sc', 'st', 'ews']), z.null()]).optional(),
+    disability: z.union([z.boolean(), z.null()]).optional(),
+    minority: z.union([z.boolean(), z.null()]).optional(),
+    parentService: z.union([z.enum(['none', 'capf', 'railways', 'defence', 'state_police']), z.null()]).optional(),
+    firstGeneration: z.union([z.boolean(), z.null()]).optional(),
     annualFamilyIncomeINR: z.union([z.number().int('Enter a whole number of rupees').min(0, 'Income cannot be negative').max(LIMITS.incomeMax, 'That amount looks too large'), z.null()]).optional(),
     links: z.object({
       github: z.union([httpsUrl, z.literal('')]).optional(),

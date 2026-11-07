@@ -126,7 +126,7 @@ export function Welcome({ notice, networkError }: { notice?: string; networkErro
                 {mode === 'register' ? 'Sign in' : 'Create an account'}
               </button>
             </p>
-            {mode === 'register' && <p className="tiny faint" style={{ textAlign: 'center' }}>Your profile stays private. Income and home state are optional and never shared with the AI or your college.</p>}
+            {mode === 'register' && <p className="tiny faint" style={{ textAlign: 'center' }}>Your profile stays private. Income, home state and other private details are optional and never shared with the AI or your college.</p>}
           </form>
         )}
       </div>

@@ -31,7 +31,7 @@ const PROFILE_FIELDS = {
   skills_all: { field: 'skills', label: 'Add your skills' },
   skills_any: { field: 'skills', label: 'Add your skills' },
 };
-const NOT_FIXABLE_NOW = new Set(['degree_in', 'branch_in', 'graduation_year_in', 'home_state_in', 'max_family_income', 'year_in', 'self_declared']);
+const NOT_FIXABLE_NOW = new Set(['degree_in', 'branch_in', 'graduation_year_in', 'home_state_in', 'max_family_income', 'year_in', 'self_declared', 'gender_in', 'category_in', 'disability_required', 'minority_required', 'parent_service_in', 'first_generation_required']);
 
 /** Rough learning time (weeks at ~5–6 hours/week) for a working level. Always shown as an estimate. */
 const EFFORT_WEEKS = {

@@ -52,6 +52,13 @@ const profileSchema = new Schema(
     workModes: [{ type: String, enum: WORK_MODES }],
     homeState: { type: String, trim: true, maxlength: 60 },
     annualFamilyIncomeINR: { type: Number, min: 0 },
+    // More private scholarship details (all optional, never inferred, never sent to the AI or shown to colleges).
+    gender: { type: String, enum: ['female', 'male', 'other'] },
+    socialCategory: { type: String, enum: ['general', 'obc', 'sc', 'st', 'ews'] },
+    disability: { type: Boolean },
+    minority: { type: Boolean },
+    parentService: { type: String, enum: ['none', 'capf', 'railways', 'defence', 'state_police'] },
+    firstGeneration: { type: Boolean },
     links: {
       github: { type: String, trim: true, maxlength: 300 },
       linkedin: { type: String, trim: true, maxlength: 300 },

@@ -18,7 +18,17 @@ export const RULE_KINDS = [
   'skills_all',
   'skills_any',
   'self_declared',
+  // Private details (checked only against the student's own private profile fields).
+  'gender_in',
+  'category_in',
+  'disability_required',
+  'minority_required',
+  'parent_service_in',
+  'first_generation_required',
 ];
+
+/** Rule kinds that read a private profile detail; their results are never shown to the AI. */
+export const PRIVATE_RULE_KINDS = new Set(['max_family_income', 'home_state_in', 'gender_in', 'category_in', 'disability_required', 'minority_required', 'parent_service_in', 'first_generation_required']);
 
 /** A single structured eligibility criterion extracted from the source. */
 const ruleSchema = new Schema(

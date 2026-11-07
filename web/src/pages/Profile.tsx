@@ -103,7 +103,7 @@ export function ProfilePage() {
       <Sheet open={privacyOpen} onClose={() => setPrivacyOpen(false)} title="Privacy & data">
         <ul className="small muted" style={{ paddingLeft: 18 }}>
           <li>Your profile, saved items, tracker, roadmap and drafts are visible only to you.</li>
-          <li>Income and home state are optional, used only for eligibility checks, never sent to the AI and never shown to your college.</li>
+          <li>Private details — income, home state, gender, category, disability, minority status, parent or guardian’s service and first-generation status — are optional and used only for scholarship eligibility checks. They are never sent to the AI (Sarthi sees only that a criterion was “checked privately”) and never shown to your college.</li>
           <li>Sarthi (AI) sees your first name, education, skills, interests, goals and projects only when you use an AI feature.</li>
           <li>College admins see only aggregate counts (hidden below 3), never individual students.</li>
           <li>Opening an official link never changes your application status.</li>

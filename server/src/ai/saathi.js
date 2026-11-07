@@ -7,7 +7,7 @@ import { containsCode, isOffTopic, resourcesFor, scopeReply } from './scope.js';
 import { buildEvidence, findUngroundedClaims } from './grounding.js';
 import { searchOpportunities, getVisibleOpportunity, recommendedMatches } from '../services/opportunities.js';
 import { getDeadlines, getNextMoves } from '../services/nextMoves.js';
-import { checkEligibility } from '../eligibility/engine.js';
+import { checkEligibility, eligibilityForModel } from '../eligibility/engine.js';
 import { computeAvailability, OPPORTUNITY_TYPES } from '../models/Opportunity.js';
 import { Roadmap } from '../models/Roadmap.js';
 import { Application } from '../models/Application.js';
@@ -122,7 +122,8 @@ async function executeTool(name, rawArgs, ctx) {
         const o = await getVisibleOpportunity(user, parsed.data.opportunity_id);
         remember(o);
         const r = checkEligibility(o, user.profile, { now });
-        return { opportunity: o.title, overall: r.overall, criteria: r.criteria.map((c) => ({ requirement: c.requirement, status: c.status, mandatory: c.mandatory, explanation: c.explanation, nextStep: c.nextStep })), caveats: r.caveats.map((c) => c.message), disclaimer: r.disclaimer };
+        // Private criteria (income, home state, category…) are redacted: the model never sees those details.
+        return { opportunity: o.title, ...eligibilityForModel(r), caveats: r.caveats.map((c) => c.message), disclaimer: r.disclaimer };
       } catch {
         return { error: 'Opportunity not found or not visible to this student.' };
       }

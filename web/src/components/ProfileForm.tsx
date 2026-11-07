@@ -5,6 +5,7 @@ import { Field, TokenEditor } from './ui';
 import { fieldId, type FieldErrors } from '../lib/profileValidation';
 import { incomeDigits } from '../../../shared/profileRules.js';
 import { OTHER_STATE, STATES, UNION_TERRITORIES } from '../../../shared/states.js';
+import { GENDERS, PARENT_SERVICES, SOCIAL_CATEGORIES } from '../../../shared/privateFields.js';
 import { IconPlus, IconTrash } from './icons';
 
 export const DEGREES = ['B.Tech', 'B.E.', 'BCA', 'B.Sc', 'BS', 'B.Com', 'BA', 'BBA', 'B.Arch', 'B.Pharm', 'MBBS', 'B.Des', 'LLB', 'M.Tech', 'M.E.', 'MCA', 'M.Sc', 'MBA', 'MA', 'Diploma', 'Integrated', 'PhD', 'Other'];
@@ -22,6 +23,8 @@ export interface Draft {
   skills: string[]; interests: string[]; careerGoal: string; headline: string;
   workModes: ('remote' | 'hybrid' | 'onsite')[]; locations: string[];
   homeState: string; income: string;
+  /** Private scholarship details: '' = prefer not to say. Yes/no fields use 'yes' | 'no' | ''. */
+  gender: string; socialCategory: string; disability: string; minority: string; parentService: string; firstGeneration: string;
   projects: Project[]; achievements: string[];
   github: string; linkedin: string; portfolio: string;
 }
@@ -38,6 +41,8 @@ export function draftFrom(user: User): Draft {
     skills: p.skills ?? [], interests: p.interests ?? [], careerGoal: p.careerGoal ?? '', headline: p.headline ?? '',
     workModes: p.workModes ?? [], locations: p.preferredLocations ?? [],
     homeState: p.homeState ?? '', income: p.annualFamilyIncomeINR != null ? String(p.annualFamilyIncomeINR) : '',
+    gender: p.gender ?? '', socialCategory: p.socialCategory ?? '', parentService: p.parentService ?? '',
+    disability: yesNo(p.disability), minority: yesNo(p.minority), firstGeneration: yesNo(p.firstGeneration),
     projects: (p.projects ?? []).map((x) => ({ title: x.title, description: x.description ?? '', skills: x.skills ?? [], url: x.url ?? '' })),
     achievements: p.achievements ?? [],
     github: p.links?.github ?? '', linkedin: p.links?.linkedin ?? '', portfolio: p.links?.portfolio ?? '',
@@ -45,6 +50,8 @@ export function draftFrom(user: User): Draft {
 }
 
 const num = (s: string) => (s.trim() === '' ? null : Number(s));
+const yesNo = (b: boolean | undefined) => (b === true ? 'yes' : b === false ? 'no' : '');
+const toBool = (s: string) => (s === 'yes' ? true : s === 'no' ? false : null);
 const income = (s: string) => { const v = incomeDigits(s); return v === '' ? null : Number(v); };
 const url = (s: string) => { const v = s.trim(); return !v ? '' : /^https?:\/\//i.test(v) ? v : `https://${v}`; };
 
@@ -55,6 +62,8 @@ export function toPatch(d: Draft, original: User, completeOnboarding = false): P
     skills: d.skills, interests: d.interests, careerGoal: d.careerGoal.trim(), headline: d.headline.trim(),
     workModes: d.workModes, preferredLocations: d.locations,
     homeState: (d.homeState || null) as string, annualFamilyIncomeINR: income(d.income) as number,
+    gender: (d.gender || null) as Profile['gender'], socialCategory: (d.socialCategory || null) as Profile['socialCategory'], parentService: (d.parentService || null) as Profile['parentService'],
+    disability: toBool(d.disability) as boolean, minority: toBool(d.minority) as boolean, firstGeneration: toBool(d.firstGeneration) as boolean,
     projects: d.projects.filter((p) => p.title.trim()).map((p) => ({ title: p.title.trim(), description: p.description?.trim(), skills: p.skills ?? [], url: url(p.url ?? '') })),
     achievements: d.achievements,
     links: { github: url(d.github), linkedin: url(d.linkedin), portfolio: url(d.portfolio) },
@@ -183,7 +192,7 @@ export function PreferenceFields({ draft, set, errors = {} }: FormProps) {
       <TokenEditor label="Preferred locations" tokens={draft.locations} onChange={(locations) => set({ locations })} suggestions={LOCATIONS} max={10} placeholder="Add a city" />
       <div className="card soft" style={{ marginTop: 8 }}>
         <p className="faint">Private — scholarship checks only</p>
-        <p className="small muted">Optional. Used only to check income and domicile rules. Never sent to the AI and never shown to your college.</p>
+        <p className="small muted">All optional. Used only to check scholarship rules (income, domicile, and schemes for particular groups). Never sent to the AI and never shown to your college.</p>
         <div className="grid-2">
           <Field label="Home state" error={errors.homeState}>
             <select id={fieldId('homeState')} className="input" value={draft.homeState} onChange={(e) => set({ homeState: e.target.value })}>
@@ -195,6 +204,39 @@ export function PreferenceFields({ draft, set, errors = {} }: FormProps) {
           </Field>
           <Field label="Annual family income (₹)" error={errors.income}>
             <input id={fieldId('income')} className="input" inputMode="numeric" value={draft.income} onChange={(e) => set({ income: e.target.value })} placeholder="Prefer not to say" />
+          </Field>
+          <Field label="Gender">
+            <select className="input" value={draft.gender} onChange={(e) => set({ gender: e.target.value })}>
+              <option value="">Prefer not to say</option>
+              {GENDERS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Category">
+            <select className="input" value={draft.socialCategory} onChange={(e) => set({ socialCategory: e.target.value })}>
+              <option value="">Prefer not to say</option>
+              {SOCIAL_CATEGORIES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Disability (PwD, 40% or more)">
+            <select className="input" value={draft.disability} onChange={(e) => set({ disability: e.target.value })}>
+              <option value="">Prefer not to say</option><option value="yes">Yes</option><option value="no">No</option>
+            </select>
+          </Field>
+          <Field label="Minority community">
+            <select className="input" value={draft.minority} onChange={(e) => set({ minority: e.target.value })}>
+              <option value="">Prefer not to say</option><option value="yes">Yes</option><option value="no">No</option>
+            </select>
+          </Field>
+          <Field label="Parent or guardian’s service">
+            <select className="input" value={draft.parentService} onChange={(e) => set({ parentService: e.target.value })}>
+              <option value="">Prefer not to say</option>
+              {PARENT_SERVICES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </Field>
+          <Field label="First in family at college">
+            <select className="input" value={draft.firstGeneration} onChange={(e) => set({ firstGeneration: e.target.value })}>
+              <option value="">Prefer not to say</option><option value="yes">Yes</option><option value="no">No</option>
+            </select>
           </Field>
         </div>
       </div>
