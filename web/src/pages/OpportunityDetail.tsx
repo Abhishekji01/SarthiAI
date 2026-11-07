@@ -5,10 +5,11 @@ import { useAsync } from '../lib/useAsync';
 import { useSession } from '../lib/session';
 import { openExternal, reminderPermission, requestReminderPermission, tap } from '../lib/platform';
 import { syncReminders } from '../lib/reminders';
-import { AVAILABILITY_LABEL, clipAtWord, tidyEnding, formatDate, formatMoney, fromDateInput, OVERALL_LABEL, STATUS_LABEL, toDateInput, TYPE_LABEL } from '../lib/format';
+import { formatDate, fromDateInput, OVERALL_LABEL, STATUS_LABEL, toDateInput, TYPE_LABEL } from '../lib/format';
 import { APPLICATION_STATUSES, type ApplicationStatus, type EligibilityResult, type Opportunity } from '../lib/types';
 import { DeadlineTag, FitMeter, VerificationTag } from '../components/OpportunityRow';
 import { SaveButton } from '../components/SaveButton';
+import { OfficialDescription, opportunityFacts, ShareButton, SourceSection } from '../components/OpportunityFacts';
 import { ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
 import { IconCheck, IconDoc, IconExternal, IconChat, IconX } from '../components/icons';
 import { usePageTitle } from '../lib/usePageTitle';
@@ -39,23 +40,12 @@ export function OpportunityDetail() {
     }
   };
 
-  const money = [o.stipend && ['Stipend', formatMoney(o.stipend)], o.award && ['Award', formatMoney(o.award)]].filter(Boolean) as [string, string | null][];
-  const facts: [string, string][] = [
-    ['Deadline', o.deadline ? formatDate(o.deadline) : 'Not published'],
-    ['Status', AVAILABILITY_LABEL[o.availability]],
-    ...money.map(([k, v]) => [k, v ?? 'Not stated'] as [string, string]),
-    ...(o.duration ? [['Duration', o.duration] as [string, string]] : []),
-    ['Mode', o.workMode === 'not_applicable' ? 'Not applicable' : o.workMode === 'unknown' ? 'Not stated' : o.workMode[0].toUpperCase() + o.workMode.slice(1)],
-    ...(o.location?.description || o.location?.city ? [['Where', o.location.description ?? [o.location.city, o.location.state].filter(Boolean).join(', ')] as [string, string]] : o.location?.isNationwide ? [['Where', 'Across India'] as [string, string]] : []),
-    ...(o.eligibleYears.length ? [['Years', o.eligibleYears.map((y) => `Year ${y}`).join(', ')] as [string, string]] : []),
-    ...(o.eligibleDegrees.length ? [['Degrees', o.eligibleDegrees.join(', ')] as [string, string]] : []),
-    ...(o.minimumCGPA != null ? [['Min. CGPA', String(o.minimumCGPA)] as [string, string]] : []),
-  ];
+  const facts = opportunityFacts(o);
 
   return (
     <div className="page">
       <TopBar title="" back actions={
-        <SaveButton saved={Boolean(o.isSaved)} onToggle={toggleSave} />
+        <><ShareButton o={o} /><SaveButton saved={Boolean(o.isSaved)} onToggle={toggleSave} /></>
       } />
       <p className="faint">{TYPE_LABEL[o.opportunityType]} · {o.organization}</p>
       <h1>{o.title}</h1>
@@ -120,19 +110,7 @@ export function OpportunityDetail() {
         </div>
       </section>
 
-      <section className="section">
-        <h2>Source & verification</h2>
-        <div className="card soft small">
-          <p><strong>{o.verificationStatus === 'verified' ? 'Verified' : 'Not yet verified'}</strong>{o.lastVerifiedAt && ` · checked ${formatDate(o.lastVerifiedAt)}`}{o.datesRefreshedAt && ` · dates refreshed ${formatDate(o.datesRefreshedAt)}`}</p>
-          {o.verificationNotes && <p className="muted">{o.verificationNotes}</p>}
-          {o.isStale && <p style={{ color: 'var(--amber)' }}>Last verified over 30 days ago — details may have changed.</p>}
-          <div className="stack">
-            {[{ label: 'Official source', url: o.sourceUrl }, ...o.additionalSources].map((s) => (
-              <button key={s.url} className="link-btn row" onClick={() => openExternal(s.url)}><IconExternal size={16} /> {s.label}</button>
-            ))}
-          </div>
-        </div>
-      </section>
+      <SourceSection o={o} />
 
       <TrackSheet o={o} open={trackOpen} onClose={() => setTrackOpen(false)} onTracked={(appId, status) => { setData({ ...o, tracked: { id: appId, status, archived: false } }); toast('Added to your tracker'); }} />
       <DraftSheet o={o} open={draftOpen} onClose={() => setDraftOpen(false)} />
@@ -319,24 +297,5 @@ function DraftSheet({ o, open, onClose }: { o: Opportunity; open: boolean; onClo
       {err && <div className="notice amber" style={{ marginBottom: 12 }}>{err}</div>}
       <button className="btn block" onClick={go} disabled={busy}><IconChat size={16} /> {busy ? 'Writing…' : 'Generate draft'}</button>
     </Sheet>
-  );
-}
-
-const DESCRIPTION_PREVIEW = 600;
-
-/** Official text, collapsed to a whole-word preview, with the source always one tap away. */
-function OfficialDescription({ text, sourceUrl }: { text: string; sourceUrl: string }) {
-  const [open, setOpen] = useState(false);
-  const full = tidyEnding(text);
-  const long = full.length > DESCRIPTION_PREVIEW + 80;
-  return (
-    <section className="section">
-      <h2>From the official source</h2>
-      <p className="muted prewrap small" id="official-description">{open || !long ? full : clipAtWord(full, DESCRIPTION_PREVIEW)}</p>
-      <div className="row" style={{ gap: 14, flexWrap: 'wrap' }}>
-        {long && <button type="button" className="link-btn small" aria-expanded={open} aria-controls="official-description" onClick={() => setOpen(!open)}>{open ? 'Show less' : 'Read more'}</button>}
-        <button type="button" className="link-btn small" onClick={() => openExternal(sourceUrl)}>Read it on the official source <IconExternal size={14} /></button>
-      </div>
-    </section>
   );
 }

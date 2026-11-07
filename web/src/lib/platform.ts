@@ -49,6 +49,23 @@ export async function shareText(title: string, text: string) {
   return 'copied';
 }
 
+/** Shares a link (Android share sheet / Web Share API), or copies it to the clipboard. */
+export async function shareLink({ title, text, url }: { title: string; text: string; url: string }): Promise<'shared' | 'copied' | 'cancelled' | 'failed'> {
+  try {
+    if (isNative) {
+      await Share.share({ title, text, url });
+      return 'shared';
+    }
+    if (navigator.share) {
+      try { await navigator.share({ title, text, url }); return 'shared'; } catch (e) { return (e as Error).name === 'AbortError' ? 'cancelled' : 'failed'; }
+    }
+    await navigator.clipboard.writeText(url);
+    return 'copied';
+  } catch {
+    return 'failed';
+  }
+}
+
 export function tap() {
   if (isNative) Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
   else if (navigator.vibrate) navigator.vibrate(8);

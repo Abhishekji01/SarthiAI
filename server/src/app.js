@@ -18,7 +18,11 @@ import draftRoutes from './routes/drafts.js';
 import { campusRouter, collegesRouter, meRouter, resourcesRouter } from './routes/campus.js';
 import adminRoutes from './routes/admin.js';
 import { getAIProvider } from './ai/provider.js';
-import { isAppRoute, looksLikeFile, robotsTxt, sitemapXml } from './web/seo.js';
+import { readFileSync } from 'node:fs';
+import { isAppRoute, looksLikeFile, opportunityMeta, robotsTxt, sitemapXml, withMeta } from './web/seo.js';
+import publicRoutes, { findPublicOpportunity, publicFilter } from './routes/public.js';
+import { Opportunity } from './models/Opportunity.js';
+import mongoose from 'mongoose';
 
 export function createApp() {
   const app = express();
@@ -72,6 +76,7 @@ export function createApp() {
   app.use('/api/me', meRouter);
   app.use('/api/resources', resourcesRouter);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/public', publicRoutes);
 
   if (serveWeb) {
     // Single deployment: the same server hosts the web app (PWA) and the API.
@@ -80,7 +85,19 @@ export function createApp() {
       if (/sw\.js$/.test(file)) res.setHeader('Cache-Control', 'no-cache');
     } }));
     app.get('/robots.txt', (_req, res) => res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(robotsTxt()));
-    app.get('/sitemap.xml', async (_req, res) => res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(sitemapXml()));
+    app.get('/sitemap.xml', async (_req, res) => {
+      const listings = await Opportunity.find(publicFilter).select('_id updatedAt').sort({ updatedAt: -1 }).limit(5000).lean();
+      res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(sitemapXml(listings.map((o) => ({ path: `/opportunity/${o._id}`, lastmod: o.updatedAt }))));
+    });
+    // Shareable listing pages: server-rendered title, description and Open Graph tags for link previews.
+    let shell;
+    const indexHtml = () => (shell ??= readFileSync(path.join(webDist, 'index.html'), 'utf8'));
+    app.get(/^\/opportunity\/([a-f\d]{24})\/?$/i, async (req, res, next) => {
+      const id = req.params[0];
+      const o = mongoose.isValidObjectId(id) ? await findPublicOpportunity(id) : null;
+      if (!o) return next();
+      res.type('html').set('Cache-Control', 'no-cache').send(withMeta(indexHtml(), opportunityMeta(o)));
+    });
     app.get(/^\/(?!api\/|health$|ready$).*/, (req, res) => {
       // Missing files (e.g. /logo.png, /assets/old.js) are a real 404, never the app's HTML.
       if (looksLikeFile(req.path)) return res.status(404).type('text/plain').send('Not found');

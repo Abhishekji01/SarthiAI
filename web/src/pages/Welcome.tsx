@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../lib/session';
 import { api, ApiError, serverOverrideAllowed } from '../lib/api';
 import { Field, LogoMark, Sheet } from '../components/ui';
@@ -15,7 +16,9 @@ const POINTS = [
 
 export function Welcome({ notice, networkError }: { notice?: string; networkError?: boolean }) {
   const { signIn, register } = useSession();
-  const [mode, setMode] = useState<'start' | 'signin' | 'register' | 'forgot' | 'forgotSent'>('start');
+  const [params] = useSearchParams();
+  // Arriving from a shared link or an app screen: go straight to the form.
+  const [mode, setMode] = useState<'start' | 'signin' | 'register' | 'forgot' | 'forgotSent'>(params.get('mode') === 'register' ? 'register' : params.get('next') ? 'signin' : 'start');
   const [sentMessage, setSentMessage] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

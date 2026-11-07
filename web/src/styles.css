@@ -194,6 +194,7 @@ p { margin: 0 0 10px; }
 .btn.small { min-height: 36px; padding: 6px 12px; font-size: 14px; }
 .btn.block { width: 100%; }
 .btn.on-lead { background: var(--mint); color: #133B39; }
+.btn.on-lead-ghost { background: transparent; color: var(--on-hero); border-color: color-mix(in srgb, var(--on-hero) 45%, transparent); }
 .icon-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); cursor: pointer; flex-shrink: 0; }
 .icon-btn.active { background: var(--chip-on); color: var(--on-chip-on); border-color: transparent; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 700; cursor: pointer; min-height: 32px; display: inline-flex; align-items: center; gap: 4px; }

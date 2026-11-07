@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { safeNext } from '../lib/next';
 import { api, ApiError } from '../lib/api';
 import { useSession, useUser } from '../lib/session';
 import { CollegePicker, draftFrom, EducationFields, InterestFields, PreferenceFields, toPatch, type Draft } from '../components/ProfileForm';
@@ -19,6 +20,8 @@ export function Onboarding() {
   const user = useUser();
   const { setUser } = useSession();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const nextPath = safeNext(params.get('next'));
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>(() => draftFrom(user));
   const [busy, setBusy] = useState(false);
@@ -58,7 +61,7 @@ export function Onboarding() {
     try {
       const updated = await api.updateProfile(skip ? { completeOnboarding: true } : toPatch(draft, user, true));
       setUser(updated);
-      navigate('/', { replace: true });
+      navigate(nextPath ?? '/', { replace: true });
     } catch (e) {
       const fieldErrors = e instanceof ApiError ? fieldErrorsFromServer(e.details) : {};
       if (Object.keys(fieldErrors).length) showErrors(fieldErrors);

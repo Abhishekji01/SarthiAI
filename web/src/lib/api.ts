@@ -144,6 +144,8 @@ export const api = {
   openSummary: () => get<OpenSummary>('/opportunities/summary'),
   eventPlaces: (type: string) => get<{ city: string; count: number }[]>(`/opportunities/places?type=${encodeURIComponent(type)}`),
   opportunity: (id: string) => get<Opportunity>(`/opportunities/${id}`),
+  /** Public facts only (no sign-in): for shared links. */
+  publicOpportunity: (id: string) => get<Opportunity>(`/public/opportunities/${id}`),
   save: (id: string) => post(`/opportunities/${id}/save`),
   unsave: (id: string) => del(`/opportunities/${id}/save`),
   saved: () => get<Opportunity[]>('/saved'),
