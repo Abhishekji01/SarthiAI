@@ -25,6 +25,15 @@ const schema = z.object({
   ENABLE_DAILY_REFRESH: z.enum(['true', 'false']).optional(),
   REFRESH_HOUR_IST: z.coerce.number().int().min(0).max(23).default(3),
   REFRESH_ON_START: z.enum(['true', 'false']).default('false'),
+  // Public URL of the web app, used for links in emails (password reset, verification, digests).
+  // On Render, RENDER_EXTERNAL_URL is used when APP_URL is not set.
+  APP_URL: z.string().url().optional(),
+  RENDER_EXTERNAL_URL: z.string().url().optional(),
+  // Email (Resend). Without both, emails are logged to the console in development and not sent in production.
+  RESEND_API_KEY: z.string().optional(),
+  MAIL_FROM: z.string().optional(),
+  // Development/e2e only: also append outgoing emails to this file.
+  MAIL_OUTBOX_FILE: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 });

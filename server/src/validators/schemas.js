@@ -4,6 +4,7 @@ import { APPLICATION_STATUSES } from '../models/Application.js';
 import { MILESTONE_STATUSES, PRIORITIES } from '../models/Roadmap.js';
 import { ANNOUNCEMENT_CATEGORIES } from '../models/Announcement.js';
 import { DRAFT_KINDS } from '../models/Draft.js';
+import { passwordSchema } from '../auth/passwordRules.js';
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
 const str = (max) => z.string().trim().max(max);
@@ -17,12 +18,21 @@ const tagList = (max = 30, len = 60) => z.array(str(len).min(1)).max(max);
 export const registerSchema = z.object({
   name: str(100).min(1, 'Name is required'),
   email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
-  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  password: passwordSchema,
 }).strict();
 
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(1).max(128),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().trim().regex(/^[A-Za-z0-9_-]{32,128}$/, 'This reset link is invalid or has expired.'),
+  password: passwordSchema,
 });
 
 // ---- Profile ------------------------------------------------------------

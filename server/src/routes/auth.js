@@ -3,10 +3,12 @@ import { User, serializeUser } from '../models/User.js';
 import { hashPassword, verifyPassword, issueToken } from '../auth/tokens.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
-import { authLimiter } from '../middleware/rateLimits.js';
-import { registerSchema, loginSchema } from '../validators/schemas.js';
+import { authLimiter, forgotPasswordEmailLimiter, forgotPasswordIpLimiter, resetPasswordEmailLimiter, resetPasswordIpLimiter } from '../middleware/rateLimits.js';
+import { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from '../validators/schemas.js';
 import { send } from '../utils/http.js';
-import { conflict, unauthorized } from '../utils/errors.js';
+import { badRequest, conflict, unauthorized } from '../utils/errors.js';
+import { completePasswordReset, findUserByResetToken, requestPasswordReset } from '../auth/passwordReset.js';
+import { logger } from '../utils/logger.js';
 
 const router = Router();
 
@@ -27,6 +29,32 @@ router.post('/login', authLimiter, validate({ body: loginSchema }), async (req, 
   // Same message for unknown email and wrong password.
   if (!user || !(await verifyPassword(password, user.passwordHash))) throw unauthorized('Email or password is incorrect.');
   send(res, { token: issueToken(user), user: serializeUser(user) });
+});
+
+const RESET_SENT_MESSAGE = 'If an account exists for that email, we have sent a link to reset the password. It expires in 30 minutes.';
+
+/**
+ * Always the same 200 response, whether or not the account exists. The email
+ * is sent in the background so response time does not reveal it either.
+ */
+router.post('/forgot-password', forgotPasswordIpLimiter, validate({ body: forgotPasswordSchema }), forgotPasswordEmailLimiter, (req, res) => {
+  requestPasswordReset(req.valid.body.email).catch((err) => logger.error('Password reset request failed', { error: err }));
+  send(res, { sent: true, message: RESET_SENT_MESSAGE });
+});
+
+const INVALID_RESET = 'This reset link is invalid or has expired. Request a new one.';
+
+router.post('/reset-password', resetPasswordIpLimiter, validate({ body: resetPasswordSchema }), async (req, res, next) => {
+  const user = await findUserByResetToken(req.valid.body.token);
+  if (!user) throw badRequest(INVALID_RESET, [{ field: 'token', message: INVALID_RESET }]);
+  req.resetUser = user;
+  req.resetEmail = user.email;
+  next();
+}, resetPasswordEmailLimiter, async (req, res) => {
+  const updated = await completePasswordReset(req.resetUser, req.valid.body.password);
+  if (!updated) throw badRequest(INVALID_RESET, [{ field: 'token', message: INVALID_RESET }]);
+  // Every earlier session has ended; this response signs the student in on this device.
+  send(res, { reset: true, token: issueToken(updated), user: serializeUser(updated) });
 });
 
 /** Revokes every token issued to this user (all devices). */

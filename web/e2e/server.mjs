@@ -5,6 +5,8 @@
 import { spawnSync, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { rmSync } from 'node:fs';
+import { OUTBOX } from './outbox.mjs';
 
 const server = fileURLToPath(new URL('../../server/', import.meta.url));
 const env = {
@@ -18,7 +20,9 @@ const env = {
   GEMINI_API_KEY: '',
   E2E_RESET_DB: 'true',
   LOG_LEVEL: 'warn',
+  MAIL_OUTBOX_FILE: OUTBOX,
 };
+rmSync(OUTBOX, { force: true });
 const seed = spawnSync('node', ['scripts/seed.js', '--reset'], { cwd: server, env, stdio: ['ignore', 'ignore', 'inherit'] });
 if (seed.status !== 0) process.exit(seed.status ?? 1);
 const child = spawn('node', ['src/server.js'], { cwd: server, env, stdio: 'inherit' });

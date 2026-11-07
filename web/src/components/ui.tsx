@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconBack, IconX } from './icons';
 import { ApiError } from '../lib/api';
@@ -116,13 +116,32 @@ export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => v
   );
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
+/**
+ * Label + control + optional hint and inline error. The hint and error are linked
+ * with aria-describedby (not part of the label), and an error sets aria-invalid.
+ */
+export function Field({ label, hint, error, children }: { label: string; hint?: ReactNode; error?: string | null; children: ReactNode }) {
+  const auto = useId();
+  if (!isValidElement(children)) {
+    return (
+      <label className="field">
+        <span>{label}</span>
+        {children}
+        {error && <div className="field-error" role="alert">{error}</div>}
+        {hint && <div className="hint">{hint}</div>}
+      </label>
+    );
+  }
+  const el = children as ReactElement<Record<string, unknown>>;
+  const id = (el.props.id as string | undefined) ?? auto;
+  const describedBy = [error && `${id}-error`, hint && `${id}-hint`].filter(Boolean).join(' ') || undefined;
   return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-      {hint && <div className="hint">{hint}</div>}
-    </label>
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      {cloneElement(el, { id, 'aria-describedby': describedBy, ...(error ? { 'aria-invalid': true } : {}) })}
+      {error && <div id={`${id}-error`} className="field-error" role="alert">{error}</div>}
+      {hint && <div id={`${id}-hint`} className="hint">{hint}</div>}
+    </div>
   );
 }
 

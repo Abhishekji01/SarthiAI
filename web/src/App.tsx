@@ -11,6 +11,7 @@ import { Welcome } from './pages/Welcome';
 import { Home } from './pages/Home';
 import { Discover } from './pages/Discover';
 import { OpportunityDetail } from './pages/OpportunityDetail';
+import { ResetPassword } from './pages/ResetPassword';
 
 // Less-used screens load on demand to keep first paint fast on phones.
 const Onboarding = lazy(() => import('./pages/Onboarding').then((m) => ({ default: m.Onboarding })));
@@ -60,6 +61,7 @@ export function App() {
     return (
       <Routes>
         <Route path="/welcome" element={<Welcome notice={state.notice} networkError={state.networkError} />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     );
@@ -69,6 +71,7 @@ export function App() {
     <Suspense fallback={<div className="page"><Skeleton /></div>}>
       <Routes>
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<Layout />}>
           <Route index element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <Home />} />
           <Route path="discover" element={<Discover />} />

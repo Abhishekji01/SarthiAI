@@ -14,6 +14,8 @@ interface SessionValue {
   signIn: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Signs in with a token the server just issued (e.g. after a password reset). */
+  adoptSession: (token: string, user: User) => Promise<void>;
   setUser: (u: User) => void;
   refreshUser: () => Promise<void>;
 }
@@ -74,12 +76,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setState({ status: 'signedOut' });
   }, []);
 
+  const adoptSession = useCallback(async (token: string, user: User) => {
+    await setToken(token);
+    setState({ status: 'signedIn', user });
+    syncReminders(user).catch(() => {});
+  }, []);
+
   const setUser = useCallback((user: User) => setState({ status: 'signedIn', user }), []);
   const refreshUser = useCallback(async () => setUser(await api.me()), [setUser]);
 
   const value = useMemo<SessionValue>(() => ({
-    state, user: state.status === 'signedIn' ? state.user : null, signIn, register, signOut, setUser, refreshUser,
-  }), [state, signIn, register, signOut, setUser, refreshUser]);
+    state, user: state.status === 'signedIn' ? state.user : null, signIn, register, signOut, adoptSession, setUser, refreshUser,
+  }), [state, signIn, register, signOut, adoptSession, setUser, refreshUser]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

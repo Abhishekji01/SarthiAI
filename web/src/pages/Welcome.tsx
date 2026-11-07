@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useSession } from '../lib/session';
-import { ApiError, serverOverrideAllowed } from '../lib/api';
+import { api, ApiError, serverOverrideAllowed } from '../lib/api';
 import { Field, LogoMark, Sheet } from '../components/ui';
 import { NetworkErrorActions, ServerSettings } from '../components/ServerSettings';
+import { PasswordHint } from '../components/PasswordHint';
 import { IconCheck, IconSettings } from '../components/icons';
 
 const POINTS = [
@@ -13,7 +14,8 @@ const POINTS = [
 
 export function Welcome({ notice, networkError }: { notice?: string; networkError?: boolean }) {
   const { signIn, register } = useSession();
-  const [mode, setMode] = useState<'start' | 'signin' | 'register'>('start');
+  const [mode, setMode] = useState<'start' | 'signin' | 'register' | 'forgot' | 'forgotSent'>('start');
+  const [sentMessage, setSentMessage] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +28,11 @@ export function Welcome({ notice, networkError }: { notice?: string; networkErro
     setBusy(true);
     setError(null);
     try {
-      if (mode === 'register') await register(name.trim(), email.trim(), password);
+      if (mode === 'forgot') {
+        const r = await api.forgotPassword(email.trim());
+        setSentMessage(r.message);
+        setMode('forgotSent');
+      } else if (mode === 'register') await register(name.trim(), email.trim(), password);
       else await signIn(email.trim(), password);
     } catch (err) {
       setError(err instanceof ApiError && err.details && Array.isArray(err.details) ? (err.details as { message: string }[]).map((d) => d.message).join(' ') : (err as Error).message);
@@ -60,6 +66,24 @@ export function Welcome({ notice, networkError }: { notice?: string; networkErro
               <button className="btn block ghost" onClick={() => setMode('signin')}>I already have an account</button>
             </div>
           </>
+        ) : mode === 'forgotSent' ? (
+          <div style={{ marginTop: 20 }} role="status">
+            <h2>Check your email</h2>
+            <p className="muted">{sentMessage}</p>
+            <p className="small faint">Didn’t get it? Check spam, or wait a minute and try again.</p>
+            <button type="button" className="btn block ghost" onClick={() => { setMode('signin'); setError(null); }}>Back to sign in</button>
+          </div>
+        ) : mode === 'forgot' ? (
+          <form onSubmit={submit} style={{ marginTop: 20 }} noValidate>
+            <h2>Reset your password</h2>
+            <p className="small muted">Enter the email you signed up with. We’ll send a link to choose a new password.</p>
+            <Field label="Email"><input className="input" type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
+            {error && <div className="notice coral" role="alert" style={{ marginBottom: 14 }}>{error}</div>}
+            <button className="btn block" disabled={busy || !email.trim()}>{busy ? 'Sending…' : 'Send reset link'}</button>
+            <p className="small muted" style={{ textAlign: 'center', marginTop: 16 }}>
+              <button type="button" className="link-btn" onClick={() => { setMode('signin'); setError(null); }}>Back to sign in</button>
+            </p>
+          </form>
         ) : (
           <form onSubmit={submit} style={{ marginTop: 20 }} noValidate>
             {notice && mode === 'signin' && <div className="notice amber" role="alert" style={{ marginBottom: 16 }}><span className="grow">{notice}</span>{networkError && <NetworkErrorActions onRetry={() => window.location.reload()} />}</div>}
@@ -67,9 +91,14 @@ export function Welcome({ notice, networkError }: { notice?: string; networkErro
               <Field label="Full name"><input className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required /></Field>
             )}
             <Field label="Email"><input className="input" type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
-            <Field label="Password" hint={mode === 'register' ? 'At least 8 characters.' : undefined}>
+            <Field label="Password" hint={mode === 'register' ? <PasswordHint password={password} /> : undefined}>
               <input className="input" type="password" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'register' ? 8 : 1} />
             </Field>
+            {mode === 'signin' && (
+              <p className="small" style={{ margin: '-6px 0 14px', textAlign: 'right' }}>
+                <button type="button" className="link-btn" onClick={() => { setMode('forgot'); setError(null); }}>Forgot password?</button>
+              </p>
+            )}
             {error && <div className="notice coral" role="alert" style={{ marginBottom: 14 }}>{error}</div>}
             <button className="btn block" disabled={busy || !email || !password || (mode === 'register' && (!name.trim() || password.length < 8))}>
               {busy ? 'Please wait…' : mode === 'register' ? 'Create account' : 'Sign in'}

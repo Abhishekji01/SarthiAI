@@ -20,3 +20,18 @@ export async function signedInStudent(page: Page, request: APIRequestContext, { 
 export async function setTheme(page: Page, scheme: 'light' | 'dark') {
   await page.emulateMedia({ colorScheme: scheme });
 }
+
+/** Latest link of a given kind emailed to this address (dev mailer outbox). */
+export async function emailedLink(email: string, kind: string) {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { OUTBOX } = await import('./outbox.mjs');
+  for (let i = 0; i < 40; i += 1) {
+    if (existsSync(OUTBOX)) {
+      const msgs = readFileSync(OUTBOX, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+      const hit = msgs.reverse().find((m: { to: string; kind: string }) => m.to === email && m.kind === kind);
+      if (hit) return new URL(hit.text.match(/https?:\/\/\S+/)[0]);
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`No ${kind} email for ${email}`);
+}

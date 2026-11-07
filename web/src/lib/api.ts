@@ -114,6 +114,8 @@ export const api = {
   register: (b: { name: string; email: string; password: string }) => post<{ token: string; user: User }>('/auth/register', b),
   login: (b: { email: string; password: string }) => post<{ token: string; user: User }>('/auth/login', b),
   logout: () => post<{ signedOut: boolean }>('/auth/logout'),
+  forgotPassword: (email: string) => post<{ sent: boolean; message: string }>('/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) => post<{ reset: boolean; token: string; user: User }>('/auth/reset-password', { token, password }),
   me: () => get<{ user: User }>('/auth/me').then((d) => d.user),
 
   updateProfile: (b: ProfilePatch) => patch<{ user: User }>('/profile', b).then((d) => d.user),
