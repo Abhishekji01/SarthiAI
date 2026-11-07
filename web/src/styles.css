@@ -5,7 +5,7 @@
 :root {
   /* Base */
   --paper: #F2F2EE; --surface: #FFFFFF; --sunken: #EAEAE4;
-  --ink: #171B1F; --ink-2: #5A616B; --ink-3: #8D939B; --rule: #E3E3DD;
+  --ink: #171B1F; --ink-2: #5A616B; --ink-3: #60666D; --rule: #E3E3DD;
   /* Hero / primary */
   --hero: #133B39; --hero-track: #1C4C49; --mint: #BDEBD6; --on-hero: #FFFFFF;
   --accent: #133B39; --accent-soft: #E1F2EA; --on-accent: #FFFFFF;
@@ -18,7 +18,7 @@
   --on-cat: #171B1F;
   /* Semantic (eligibility: met / not met / to confirm), toned to the palette */
   --jade: #1E6B4E; --jade-soft: #DDF1E6;
-  --coral: #B4473A; --coral-soft: #F8E1DC;
+  --coral: #A63F33; --coral-soft: #F8E1DC;
   --amber: #7D5F0E; --amber-soft: #FBEDB8;
   --shadow: none;
   --radius: 18px; --radius-input: 14px; --radius-btn: 12px;
@@ -30,7 +30,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper: #121413; --surface: #1B1E1C; --sunken: #232724;
-    --ink: #ECEDEA; --ink-2: #AEB3AD; --ink-3: #868C86; --rule: #2B2F2C;
+    --ink: #ECEDEA; --ink-2: #AEB3AD; --ink-3: #9A9F99; --rule: #2B2F2C;
     --hero: #1F5A55; --hero-track: #2A6B65; --mint: #BDEBD6; --on-hero: #FFFFFF;
     --accent: #BDEBD6; --accent-soft: #1D3A30; --on-accent: #121413;
     --chip-on: #ECEDEA; --on-chip-on: #121413;
@@ -43,7 +43,7 @@
 }
 :root[data-theme="dark"] {
   --paper: #121413; --surface: #1B1E1C; --sunken: #232724;
-  --ink: #ECEDEA; --ink-2: #AEB3AD; --ink-3: #868C86; --rule: #2B2F2C;
+  --ink: #ECEDEA; --ink-2: #AEB3AD; --ink-3: #9A9F99; --rule: #2B2F2C;
   --hero: #1F5A55; --hero-track: #2A6B65; --mint: #BDEBD6; --on-hero: #FFFFFF;
   --accent: #BDEBD6; --accent-soft: #1D3A30; --on-accent: #121413;
   --chip-on: #ECEDEA; --on-chip-on: #121413;
