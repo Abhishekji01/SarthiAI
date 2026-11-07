@@ -5,11 +5,15 @@ import { MILESTONE_STATUSES, PRIORITIES } from '../models/Roadmap.js';
 import { ANNOUNCEMENT_CATEGORIES } from '../models/Announcement.js';
 import { DRAFT_KINDS } from '../models/Draft.js';
 import { passwordSchema } from '../auth/passwordRules.js';
+import { plainLine, plainText } from '../utils/sanitize.js';
 import { LIMITS, cgpaNumberError, tagListError } from '../../../shared/profileRules.js';
 import { isHomeStateOption } from '../../../shared/states.js';
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
 const str = (max) => z.string().trim().max(max);
+/** Text people type: tags and control characters removed, then length-checked. */
+const line = (max) => z.string().transform(plainLine).pipe(z.string().max(max));
+const text = (max) => z.string().transform(plainText).pipe(z.string().max(max));
 const httpsUrl = z.string().trim().url().max(500).refine((u) => /^https?:\/\//i.test(u), 'Must be an http(s) URL');
 // null must be tried first: z.coerce.date() turns null into 1970-01-01.
 const optionalDate = z.union([z.null(), z.coerce.date()]).optional();
@@ -18,7 +22,7 @@ const tagList = (max = 30, len = 60) => z.array(str(len).min(1)).max(max);
 // ---- Auth ---------------------------------------------------------------
 
 export const registerSchema = z.object({
-  name: str(100).min(1, 'Name is required'),
+  name: line(100).pipe(z.string().min(1, 'Name is required')),
   email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
   password: passwordSchema,
 }).strict();
@@ -40,40 +44,40 @@ export const resetPasswordSchema = z.object({
 // ---- Profile ------------------------------------------------------------
 
 const projectInput = z.object({
-  title: str(120).min(1),
-  description: str(1000).optional(),
+  title: line(120).pipe(z.string().min(1)),
+  description: text(1000).optional(),
   skills: tagList(15, 40).optional(),
   url: z.union([httpsUrl, z.literal('')]).optional(),
 });
 
 const experienceInput = z.object({
-  role: str(120).min(1),
-  organization: str(120).min(1),
+  role: line(120).pipe(z.string().min(1)),
+  organization: line(120).pipe(z.string().min(1)),
   startDate: optionalDate,
   endDate: optionalDate,
-  description: str(1000).optional(),
+  description: text(1000).optional(),
 });
 
 /** `role`, `adminCollegeIds`, `email`, `tokenVersion` are deliberately absent. */
 export const profilePatchSchema = z.object({
-  name: str(100).min(1).optional(),
+  name: line(100).pipe(z.string().min(1, 'Name is required')).optional(),
   profile: z.object({
     collegeId: z.union([objectId, z.null()]).optional(),
-    customCollegeName: str(160).min(2).optional(),
-    degree: str(60).optional(),
-    branch: str(80).optional(),
+    customCollegeName: line(160).pipe(z.string().min(2, 'Enter your institution’s full name')).optional(),
+    degree: line(60).optional(),
+    branch: line(80).optional(),
     currentYear: z.union([z.number().int().min(1).max(6), z.null()]).optional(),
     semester: z.union([z.number().int().min(1).max(12), z.null()]).optional(),
     graduationYear: z.union([z.number().int().min(2000).max(2100), z.null()]).optional(),
     cgpa: z.union([z.number().superRefine((n, ctx) => { const e = cgpaNumberError(n); if (e) ctx.addIssue({ code: 'custom', message: e }); }), z.null()]).optional(),
-    skills: z.array(str(LIMITS.tagMaxLength + 20).min(1)).superRefine((l, ctx) => { const e = tagListError(l, 'skills'); if (e) ctx.addIssue({ code: 'custom', message: e }); }).optional(),
-    interests: z.array(str(LIMITS.tagMaxLength + 20).min(1)).superRefine((l, ctx) => { const e = tagListError(l, 'interests'); if (e) ctx.addIssue({ code: 'custom', message: e }); }).optional(),
-    careerGoal: str(300).optional(),
-    headline: str(160).optional(),
+    skills: z.array(line(LIMITS.tagMaxLength + 20).pipe(z.string().min(1))).superRefine((l, ctx) => { const e = tagListError(l, 'skills'); if (e) ctx.addIssue({ code: 'custom', message: e }); }).optional(),
+    interests: z.array(line(LIMITS.tagMaxLength + 20).pipe(z.string().min(1))).superRefine((l, ctx) => { const e = tagListError(l, 'interests'); if (e) ctx.addIssue({ code: 'custom', message: e }); }).optional(),
+    careerGoal: line(300).optional(),
+    headline: line(160).optional(),
     projects: z.array(projectInput).max(20).optional(),
     experience: z.array(experienceInput).max(20).optional(),
-    achievements: z.array(str(300).min(1)).max(20).optional(),
-    preferredLocations: tagList(10, 60).optional(),
+    achievements: z.array(line(300).pipe(z.string().min(1))).max(20).optional(),
+    preferredLocations: z.array(line(60).pipe(z.string().min(1))).max(10).optional(),
     workModes: z.array(z.enum(['remote', 'hybrid', 'onsite'])).max(3).optional(),
     homeState: z.union([str(60).refine(isHomeStateOption, 'Choose a state or union territory from the list'), z.null()]).optional(),
     annualFamilyIncomeINR: z.union([z.number().int('Enter a whole number of rupees').min(0, 'Income cannot be negative').max(LIMITS.incomeMax, 'That amount looks too large'), z.null()]).optional(),
@@ -136,25 +140,25 @@ export const eligibilityCheckSchema = z.object({
 
 export const applicationCreateSchema = z.object({
   opportunityId: objectId.nullish(),
-  title: str(200).min(1).optional(),
-  organization: str(160).optional(),
+  title: line(200).pipe(z.string().min(1)).optional(),
+  organization: line(160).optional(),
   applicationUrl: z.union([httpsUrl, z.literal('')]).optional(),
   status: z.enum(APPLICATION_STATUSES).default('interested'),
-  notes: str(4000).optional(),
+  notes: text(4000).optional(),
   deadline: optionalDate,
-  nextAction: str(300).optional(),
+  nextAction: line(300).optional(),
   nextActionDue: optionalDate,
   appliedAt: optionalDate,
 }).refine((v) => v.opportunityId || v.title, { message: 'Provide an opportunityId or a title', path: ['title'] });
 
 export const applicationPatchSchema = z.object({
-  title: str(200).min(1).optional(),
-  organization: str(160).optional(),
+  title: line(200).pipe(z.string().min(1)).optional(),
+  organization: line(160).optional(),
   applicationUrl: z.union([httpsUrl, z.literal('')]).optional(),
   status: z.enum(APPLICATION_STATUSES).optional(),
-  notes: str(4000).optional(),
+  notes: text(4000).optional(),
   deadline: optionalDate,
-  nextAction: z.union([str(300), z.null()]).optional(),
+  nextAction: z.union([line(300), z.null()]).optional(),
   nextActionDue: optionalDate,
   appliedAt: optionalDate,
   archived: z.boolean().optional(),
@@ -177,13 +181,13 @@ export const milestonePatchSchema = z.object({
   priority: z.enum(PRIORITIES).optional(),
   order: z.number().int().min(0).max(1000).optional(),
   targetDate: optionalDate,
-  title: str(160).min(1).optional(),
+  title: line(160).pipe(z.string().min(1)).optional(),
 });
 
 export const milestoneCreateSchema = z.object({
-  goal: str(300).min(3).optional(),
-  title: str(160).min(1),
-  purpose: str(600).optional(),
+  goal: line(300).pipe(z.string().min(3)).optional(),
+  title: line(160).pipe(z.string().min(1)),
+  purpose: text(600).optional(),
   steps: z.array(str(300).min(1)).max(15).default([]),
   skills: tagList(10, 40).default([]),
   priority: z.enum(PRIORITIES).default('medium'),
@@ -302,8 +306,8 @@ export const adminVerifySchema = z.object({
 
 export const announcementCreateSchema = z.object({
   collegeId: objectId,
-  title: str(160).min(3),
-  body: str(5000).min(3),
+  title: line(160).pipe(z.string().min(3)),
+  body: text(5000).pipe(z.string().min(3)),
   category: z.enum(ANNOUNCEMENT_CATEGORIES).default('general'),
   sourceUrl: z.union([httpsUrl, z.literal('')]).optional(),
   linkedOpportunityId: objectId.optional(),
