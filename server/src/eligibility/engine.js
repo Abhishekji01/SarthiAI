@@ -1,3 +1,5 @@
+// Shared with the profile forms (shared/profileRules.js).
+import { DEGREE_YEARS } from '../../../shared/profileRules.js';
 import { computeAvailability, isStale } from '../models/Opportunity.js';
 import { compareSkills, canonicalState, ALL_INDIA } from '../matching/taxonomy.js';
 
@@ -54,7 +56,6 @@ export function degreeMatches(values, degree) {
 }
 
 /** Typical programme length, used only to estimate year of study when it is missing. */
-const DEGREE_YEARS = { btech: 4, be: 4, barch: 5, mbbs: 5, bds: 5, llb: 5, bpharm: 4, bdes: 4, integrated: 5, bsc: 3, bs: 4, bca: 3, bcom: 3, ba: 3, bba: 3, mtech: 2, me: 2, msc: 2, ms: 2, mca: 2, mba: 2, ma: 2, mcom: 2, diploma: 3 };
 
 /**
  * Academic year in India runs roughly July–June. A student graduating in the

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, serverOverrideAllowed } from '../lib/api';
+import { api, ApiError, serverOverrideAllowed } from '../lib/api';
+import { FIELD_STEP, fieldErrorsFromServer, firstErrorField, focusField, validateAll, type FieldErrors } from '../lib/profileValidation';
 import { ServerSettings } from '../components/ServerSettings';
 import { useSession, useUser } from '../lib/session';
 import { isNative, platform, reminderPermission, requestReminderPermission, type ReminderPermission } from '../lib/platform';
@@ -148,24 +149,40 @@ export function EditProfile() {
   const [section, setSection] = useState<(typeof SECTIONS)[number]>('Basics');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const set = (p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p }));
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const set = (p: Partial<Draft>) => {
+    setDraft((d) => ({ ...d, ...p }));
+    setErrors((e) => { const next = { ...e }; for (const k of Object.keys(p)) delete next[k as keyof FieldErrors]; return next; });
+  };
+  const showErrors = (e: FieldErrors) => {
+    setErrors(e);
+    const first = firstErrorField(e);
+    if (first) { setSection(SECTIONS[FIELD_STEP[first]]); focusField(first); }
+  };
   const save = async () => {
+    const e = validateAll(draft, { requireCore: true });
+    if (Object.keys(e).length) return showErrors(e);
     setBusy(true); setErr(null);
-    try { setUser(await api.updateProfile(toPatch(draft, user, true))); toast('Profile saved'); navigate('/profile'); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+    try { setUser(await api.updateProfile(toPatch(draft, user, true))); toast('Profile saved'); navigate('/profile'); } catch (e) {
+      const fieldErrors = e instanceof ApiError ? fieldErrorsFromServer(e.details) : {};
+      if (Object.keys(fieldErrors).length) showErrors(fieldErrors); else setErr((e as Error).message);
+    } finally { setBusy(false); }
   };
   return (
-    <div className="page">
+    <div className="page with-footer">
       <TopBar title="Edit profile" back="/profile" />
       <div className="chips scroll" style={{ marginBottom: 18 }}>
-        {SECTIONS.map((s) => <button key={s} className={`chip ${section === s ? 'on' : ''}`} onClick={() => setSection(s)}>{s}</button>)}
+        {SECTIONS.map((s) => <button key={s} className={`chip ${section === s ? 'on' : ''}`} onClick={() => setSection(s)} aria-pressed={section === s}>{s}</button>)}
       </div>
-      {section === 'Basics' && (<><Field label="Full name"><input className="input" value={draft.name} onChange={(e) => set({ name: e.target.value })} /></Field><CollegePicker draft={draft} set={set} /></>)}
-      {section === 'Education' && <EducationFields draft={draft} set={set} />}
-      {section === 'Skills & goals' && <InterestFields draft={draft} set={set} />}
-      {section === 'Preferences' && <PreferenceFields draft={draft} set={set} />}
+      {section === 'Basics' && (<><Field label="Full name"><input className="input" value={draft.name} onChange={(e) => set({ name: e.target.value })} maxLength={100} /></Field><CollegePicker draft={draft} set={set} errors={errors} /></>)}
+      {section === 'Education' && <EducationFields draft={draft} set={set} errors={errors} />}
+      {section === 'Skills & goals' && <InterestFields draft={draft} set={set} errors={errors} />}
+      {section === 'Preferences' && <PreferenceFields draft={draft} set={set} errors={errors} />}
       {section === 'Projects & links' && <ProjectFields draft={draft} set={set} />}
-      {err && <div className="notice coral" role="alert" style={{ marginTop: 12 }}>{err}</div>}
-      <div className="bottom-bar"><button className="btn grow" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save profile'}</button></div>
+      <div className="bottom-bar">
+        {err && <div className="notice coral bottom-bar-error" role="alert">{err}</div>}
+        <button className="btn grow" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save profile'}</button>
+      </div>
     </div>
   );
 }

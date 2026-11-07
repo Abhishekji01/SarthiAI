@@ -146,20 +146,28 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
 }
 
 /** Chip-based editor for skills / interests / locations, with suggestions. */
-export function TokenEditor({ label, tokens, onChange, suggestions = [], placeholder, max = 40 }: {
-  label: string; tokens: string[]; onChange: (t: string[]) => void; suggestions?: string[]; placeholder?: string; max?: number;
+export function TokenEditor({ id, label, tokens, onChange, suggestions = [], placeholder, max = 40, maxLength = 60, error }: {
+  id?: string; label: string; tokens: string[]; onChange: (t: string[]) => void; suggestions?: string[]; placeholder?: string; max?: number; maxLength?: number; error?: string | null;
 }) {
+  const auto = useId();
+  const inputId = id ?? auto;
   const [text, setText] = useState('');
+  const [note, setNote] = useState<string | null>(null);
   const has = (t: string) => tokens.some((x) => x.toLowerCase() === t.toLowerCase());
   const add = (t: string) => {
-    const v = t.trim().replace(/,$/, '');
-    if (v && !has(v) && tokens.length < max) onChange([...tokens, v]);
+    const v = t.trim().replace(/,$/, '').trim();
+    setNote(null);
+    if (!v) return setText('');
+    if (v.length > maxLength) return setNote(`Keep each one under ${maxLength} characters.`);
+    if (tokens.length >= max) return setNote(`You can add up to ${max}. Remove one to add another.`);
+    if (!has(v)) onChange([...tokens, v]);
     setText('');
   };
   const remaining = suggestions.filter((s) => !has(s));
+  const message = error ?? note;
   return (
     <div className="field">
-      <span>{label}</span>
+      <label htmlFor={inputId}>{label}</label>
       {tokens.length > 0 && (
         <div className="chips" style={{ marginBottom: 8 }}>
           {tokens.map((t) => (
@@ -170,11 +178,13 @@ export function TokenEditor({ label, tokens, onChange, suggestions = [], placeho
         </div>
       )}
       <input
-        className="input" value={text} placeholder={placeholder ?? 'Type and press Enter'}
+        id={inputId} className="input" value={text} placeholder={placeholder ?? 'Type and press Enter'}
+        aria-invalid={message ? true : undefined} aria-describedby={message ? `${inputId}-error` : undefined}
         onChange={(e) => (e.target.value.endsWith(',') ? add(e.target.value) : setText(e.target.value))}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(text); } }}
         onBlur={() => text && add(text)}
       />
+      {message && <div id={`${inputId}-error`} className="field-error" role="alert">{message}</div>}
       {remaining.length > 0 && (
         <div className="chips" style={{ marginTop: 8 }}>
           {remaining.slice(0, 12).map((s) => <button type="button" key={s} className="chip" onClick={() => add(s)}>+ {s}</button>)}

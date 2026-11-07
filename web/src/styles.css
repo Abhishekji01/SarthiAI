@@ -335,8 +335,14 @@ select.input { background-image: linear-gradient(45deg, transparent 50%, var(--i
 .steps { display: flex; gap: 6px; margin-bottom: 20px; }
 .steps > div { flex: 1; height: 5px; border-radius: 99px; background: var(--rule); }
 .steps > div.done { background: var(--hero); }
-.bottom-bar { position: sticky; bottom: var(--nav-space); padding: 12px 0 12px; background: var(--paper); display: flex; gap: 10px; }
+.bottom-bar { position: sticky; bottom: var(--nav-space); z-index: 5; padding: 12px 0 12px; background: var(--paper); display: flex; flex-wrap: wrap; gap: 10px; }
 .no-nav .bottom-bar, .auth .bottom-bar { bottom: 0; padding-bottom: calc(12px + var(--safe-bottom)); }
+.bottom-bar-error { flex-basis: 100%; margin: 0; }
+/* Keep focused fields and scrolled-to errors clear of the sticky footer (and the floating tab bar). */
+:root { --footer-h: 72px; }
+html:has(.bottom-bar) { scroll-padding-bottom: calc(var(--footer-h) + var(--nav-space) + 16px); }
+html:has(.no-nav .bottom-bar) { scroll-padding-bottom: calc(var(--footer-h) + var(--safe-bottom) + 16px); }
+.page.with-footer { padding-bottom: calc(24px + var(--safe-bottom)); }
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table th, .table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
 .table th { font-size: 12px; font-weight: 600; color: var(--ink-3); }

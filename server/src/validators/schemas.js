@@ -5,6 +5,7 @@ import { MILESTONE_STATUSES, PRIORITIES } from '../models/Roadmap.js';
 import { ANNOUNCEMENT_CATEGORIES } from '../models/Announcement.js';
 import { DRAFT_KINDS } from '../models/Draft.js';
 import { passwordSchema } from '../auth/passwordRules.js';
+import { LIMITS, cgpaNumberError, tagListError } from '../../../shared/profileRules.js';
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
 const str = (max) => z.string().trim().max(max);
@@ -63,9 +64,9 @@ export const profilePatchSchema = z.object({
     currentYear: z.union([z.number().int().min(1).max(6), z.null()]).optional(),
     semester: z.union([z.number().int().min(1).max(12), z.null()]).optional(),
     graduationYear: z.union([z.number().int().min(2000).max(2100), z.null()]).optional(),
-    cgpa: z.union([z.number().min(0).max(10), z.null()]).optional(),
-    skills: tagList(40, 40).optional(),
-    interests: tagList(20, 60).optional(),
+    cgpa: z.union([z.number().superRefine((n, ctx) => { const e = cgpaNumberError(n); if (e) ctx.addIssue({ code: 'custom', message: e }); }), z.null()]).optional(),
+    skills: z.array(str(LIMITS.tagMaxLength + 20).min(1)).superRefine((l, ctx) => { const e = tagListError(l, 'skills'); if (e) ctx.addIssue({ code: 'custom', message: e }); }).optional(),
+    interests: z.array(str(LIMITS.tagMaxLength + 20).min(1)).superRefine((l, ctx) => { const e = tagListError(l, 'interests'); if (e) ctx.addIssue({ code: 'custom', message: e }); }).optional(),
     careerGoal: str(300).optional(),
     headline: str(160).optional(),
     projects: z.array(projectInput).max(20).optional(),
@@ -74,7 +75,7 @@ export const profilePatchSchema = z.object({
     preferredLocations: tagList(10, 60).optional(),
     workModes: z.array(z.enum(['remote', 'hybrid', 'onsite'])).max(3).optional(),
     homeState: z.union([str(60), z.null()]).optional(),
-    annualFamilyIncomeINR: z.union([z.number().min(0).max(1e9), z.null()]).optional(),
+    annualFamilyIncomeINR: z.union([z.number().int('Enter a whole number of rupees').min(0, 'Income cannot be negative').max(LIMITS.incomeMax, 'That amount looks too large'), z.null()]).optional(),
     links: z.object({
       github: z.union([httpsUrl, z.literal('')]).optional(),
       linkedin: z.union([httpsUrl, z.literal('')]).optional(),

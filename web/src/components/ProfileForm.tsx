@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { api, type ProfilePatch } from '../lib/api';
 import type { College, Profile, Project, User } from '../lib/types';
 import { Field, TokenEditor } from './ui';
+import { fieldId, type FieldErrors } from '../lib/profileValidation';
+import { incomeDigits } from '../../../shared/profileRules.js';
 import { IconPlus, IconTrash } from './icons';
 
 export const DEGREES = ['B.Tech', 'B.E.', 'BCA', 'B.Sc', 'BS', 'B.Com', 'BA', 'BBA', 'B.Arch', 'B.Pharm', 'MBBS', 'B.Des', 'LLB', 'M.Tech', 'M.E.', 'MCA', 'M.Sc', 'MBA', 'MA', 'Diploma', 'Integrated', 'PhD', 'Other'];
@@ -43,15 +45,16 @@ export function draftFrom(user: User): Draft {
 }
 
 const num = (s: string) => (s.trim() === '' ? null : Number(s));
+const income = (s: string) => { const v = incomeDigits(s); return v === '' ? null : Number(v); };
 const url = (s: string) => { const v = s.trim(); return !v ? '' : /^https?:\/\//i.test(v) ? v : `https://${v}`; };
 
 export function toPatch(d: Draft, original: User, completeOnboarding = false): ProfilePatch {
   const profile: ProfilePatch['profile'] = {
     degree: d.degree, branch: d.branch.trim(),
-    currentYear: num(d.currentYear) as number, graduationYear: num(d.graduationYear) as number, cgpa: num(d.cgpa) as number,
+    currentYear: num(d.currentYear) as number, graduationYear: num(d.graduationYear) as number, cgpa: num(d.cgpa.trim()) as number,
     skills: d.skills, interests: d.interests, careerGoal: d.careerGoal.trim(), headline: d.headline.trim(),
     workModes: d.workModes, preferredLocations: d.locations,
-    homeState: (d.homeState || null) as string, annualFamilyIncomeINR: num(d.income) as number,
+    homeState: (d.homeState || null) as string, annualFamilyIncomeINR: income(d.income) as number,
     projects: d.projects.filter((p) => p.title.trim()).map((p) => ({ title: p.title.trim(), description: p.description?.trim(), skills: p.skills ?? [], url: url(p.url ?? '') })),
     achievements: d.achievements,
     links: { github: url(d.github), linkedin: url(d.linkedin), portfolio: url(d.portfolio) },
@@ -61,7 +64,9 @@ export function toPatch(d: Draft, original: User, completeOnboarding = false): P
   return { name: d.name.trim() || undefined, profile, ...(completeOnboarding ? { completeOnboarding: true } : {}) };
 }
 
-export function CollegePicker({ draft, set }: { draft: Draft; set: (p: Partial<Draft>) => void }) {
+type FormProps = { draft: Draft; set: (p: Partial<Draft>) => void; errors?: FieldErrors };
+
+export function CollegePicker({ draft, set, errors = {} }: FormProps) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<College[]>([]);
   const [notListed, setNotListed] = useState(Boolean(draft.customCollege));
@@ -81,8 +86,8 @@ export function CollegePicker({ draft, set }: { draft: Draft; set: (p: Partial<D
   if (notListed) {
     return (
       <>
-        <Field label="Institution name" hint="We'll add it to SarthiAI. Campus notices appear once your college joins.">
-          <input className="input" value={draft.customCollege} onChange={(e) => set({ customCollege: e.target.value })} placeholder="e.g. Government Engineering College, Ajmer" />
+        <Field label="Institution name" error={errors.college} hint="We'll add it to SarthiAI. Campus notices appear once your college joins.">
+          <input id={fieldId('college')} className="input" value={draft.customCollege} onChange={(e) => set({ customCollege: e.target.value })} placeholder="e.g. Government Engineering College, Ajmer" />
         </Field>
         <button type="button" className="link-btn small" onClick={() => setNotListed(false)}>Search the list instead</button>
       </>
@@ -107,54 +112,55 @@ export function CollegePicker({ draft, set }: { draft: Draft; set: (p: Partial<D
   );
 }
 
-export function EducationFields({ draft, set }: { draft: Draft; set: (p: Partial<Draft>) => void }) {
+export function EducationFields({ draft, set, errors = {} }: FormProps) {
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 1 + i);
   return (
     <>
       <div className="grid-2">
-        <Field label="Degree">
-          <select className="input" value={draft.degree} onChange={(e) => set({ degree: e.target.value })}>
+        <Field label="Degree" error={errors.degree}>
+          <select id={fieldId('degree')} className="input" value={draft.degree} onChange={(e) => set({ degree: e.target.value })} required>
             <option value="">Select…</option>
             {DEGREES.map((d) => <option key={d}>{d}</option>)}
           </select>
         </Field>
-        <Field label="Branch / major">
-          <input className="input" list="branches" value={draft.branch} onChange={(e) => set({ branch: e.target.value })} placeholder="e.g. Computer Science and Engineering" />
+        <div className="field">
+          <label htmlFor={fieldId('branch')}>Branch / major (optional)</label>
+          <input id={fieldId('branch')} className="input" list="branches" value={draft.branch} onChange={(e) => set({ branch: e.target.value })} placeholder="e.g. Computer Science and Engineering" maxLength={80} />
           <datalist id="branches">{BRANCHES.map((b) => <option key={b} value={b} />)}</datalist>
-        </Field>
-        <Field label="Current year of study">
-          <select className="input" value={draft.currentYear} onChange={(e) => set({ currentYear: e.target.value })}>
+        </div>
+        <Field label="Current year of study" error={errors.currentYear}>
+          <select id={fieldId('currentYear')} className="input" value={draft.currentYear} onChange={(e) => set({ currentYear: e.target.value })} required>
             <option value="">Select…</option>
             {[1, 2, 3, 4, 5, 6].map((y) => <option key={y} value={y}>Year {y}</option>)}
           </select>
         </Field>
-        <Field label="Graduation year">
-          <select className="input" value={draft.graduationYear} onChange={(e) => set({ graduationYear: e.target.value })}>
+        <Field label="Graduation year (optional)" error={errors.graduationYear}>
+          <select id={fieldId('graduationYear')} className="input" value={draft.graduationYear} onChange={(e) => set({ graduationYear: e.target.value })}>
             <option value="">Select…</option>
             {years.map((y) => <option key={y}>{y}</option>)}
           </select>
         </Field>
       </div>
-      <Field label="CGPA (optional, out of 10)" hint="Used only to check minimum-CGPA rules. Leave blank if you prefer.">
-        <input className="input" inputMode="decimal" value={draft.cgpa} onChange={(e) => set({ cgpa: e.target.value.replace(/[^\d.]/g, '') })} placeholder="e.g. 8.2" />
+      <Field label="CGPA (optional, out of 10)" error={errors.cgpa} hint="Used only to check minimum-CGPA rules. Leave blank if you prefer.">
+        <input id={fieldId('cgpa')} className="input" inputMode="decimal" value={draft.cgpa} onChange={(e) => set({ cgpa: e.target.value })} placeholder="e.g. 8.2" />
       </Field>
     </>
   );
 }
 
-export function InterestFields({ draft, set }: { draft: Draft; set: (p: Partial<Draft>) => void }) {
+export function InterestFields({ draft, set, errors = {} }: FormProps) {
   return (
     <>
-      <TokenEditor label="Skills" tokens={draft.skills} onChange={(skills) => set({ skills })} suggestions={SKILLS} placeholder="Add a skill (e.g. Python, ML, React)" />
-      <TokenEditor label="Interests" tokens={draft.interests} onChange={(interests) => set({ interests })} suggestions={INTERESTS} max={20} placeholder="Add an interest" />
-      <Field label="Career goal" hint="One line is enough. Sarthi uses it to rank matches and plan your roadmap.">
-        <input className="input" value={draft.careerGoal} onChange={(e) => set({ careerGoal: e.target.value })} placeholder="e.g. Become a security analyst" maxLength={300} />
+      <TokenEditor id={fieldId('skills')} error={errors.skills} label="Skills" tokens={draft.skills} onChange={(skills) => set({ skills })} suggestions={SKILLS} max={30} maxLength={40} placeholder="Add a skill (e.g. Python, ML, React)" />
+      <TokenEditor id={fieldId('interests')} error={errors.interests} label="Interests" tokens={draft.interests} onChange={(interests) => set({ interests })} suggestions={INTERESTS} max={30} maxLength={40} placeholder="Add an interest" />
+      <Field label="Career goal" error={errors.careerGoal} hint="One line is enough. Sarthi uses it to rank matches and plan your roadmap.">
+        <input id={fieldId('careerGoal')} className="input" value={draft.careerGoal} onChange={(e) => set({ careerGoal: e.target.value })} placeholder="e.g. Become a security analyst" maxLength={300} />
       </Field>
     </>
   );
 }
 
-export function PreferenceFields({ draft, set }: { draft: Draft; set: (p: Partial<Draft>) => void }) {
+export function PreferenceFields({ draft, set, errors = {} }: FormProps) {
   const toggle = (m: 'remote' | 'hybrid' | 'onsite') => set({ workModes: draft.workModes.includes(m) ? draft.workModes.filter((x) => x !== m) : [...draft.workModes, m] });
   return (
     <>
@@ -173,14 +179,14 @@ export function PreferenceFields({ draft, set }: { draft: Draft; set: (p: Partia
         <p className="faint">Private — scholarship checks only</p>
         <p className="small muted">Optional. Used only to check income and domicile rules. Never sent to the AI and never shown to your college.</p>
         <div className="grid-2">
-          <Field label="Home state">
-            <select className="input" value={draft.homeState} onChange={(e) => set({ homeState: e.target.value })}>
+          <Field label="Home state" error={errors.homeState}>
+            <select id={fieldId('homeState')} className="input" value={draft.homeState} onChange={(e) => set({ homeState: e.target.value })}>
               <option value="">Prefer not to say</option>
               {STATES.map((s) => <option key={s}>{s}</option>)}
             </select>
           </Field>
-          <Field label="Annual family income (₹)">
-            <input className="input" inputMode="numeric" value={draft.income} onChange={(e) => set({ income: e.target.value.replace(/\D/g, '') })} placeholder="Prefer not to say" />
+          <Field label="Annual family income (₹)" error={errors.income}>
+            <input id={fieldId('income')} className="input" inputMode="numeric" value={draft.income} onChange={(e) => set({ income: e.target.value })} placeholder="Prefer not to say" />
           </Field>
         </div>
       </div>

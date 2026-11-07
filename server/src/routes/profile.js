@@ -11,6 +11,7 @@ import { validate } from '../middleware/validate.js';
 import { profilePatchSchema, deleteAccountSchema } from '../validators/schemas.js';
 import { send } from '../utils/http.js';
 import { badRequest, unauthorized } from '../utils/errors.js';
+import { graduationYearError } from '../../../shared/profileRules.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -49,6 +50,11 @@ router.patch('/', validate({ body: profilePatchSchema }), async (req, res) => {
       if (key === 'links') user.profile.links = { ...(user.profile.links?.toObject?.() ?? user.profile.links ?? {}), ...value };
       else user.profile[key] = value === null ? undefined : value;
     }
+  }
+  if (profile && ('graduationYear' in profile || 'currentYear' in profile || 'degree' in profile)) {
+    // Same rule as the onboarding form: the graduation year must fit the current year of study.
+    const err = graduationYearError(user.profile.graduationYear, user.profile.degree, user.profile.currentYear);
+    if (err) throw badRequest('Some fields are invalid', [{ field: 'profile.graduationYear', message: err }]);
   }
   if (notificationPrefs) user.notificationPrefs = { ...user.notificationPrefs.toObject(), ...notificationPrefs };
   if (completeOnboarding && !user.onboardingCompletedAt) user.onboardingCompletedAt = new Date();
