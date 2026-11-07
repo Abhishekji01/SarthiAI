@@ -7,7 +7,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-from common import Fetcher, clean, ist_end
+from common import Fetcher, clean, ist_end, clip
 from pdftext import pdf_to_text, sentences
 
 SOURCE_ID = "nicsi"
@@ -63,7 +63,7 @@ def run(fetcher: Fetcher, now: datetime):
         "title": "NICSI Internship Programme",
         "organization": "NICSI (National Informatics Centre Services Inc.)",
         "opportunityType": "internship",
-        "officialDescription": ("Quoted from the NICSI internship page and notification: " + " ".join(desc))[:3900] if desc
+        "officialDescription": clip("Quoted from the NICSI internship page and notification: " + " ".join(desc), 3900) if desc
         else "See the NICSI internship page for current batches, the scheme document and the application form.",
         "sourceUrl": PAGE,
         "applicationUrl": PAGE,

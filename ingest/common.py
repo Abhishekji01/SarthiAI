@@ -164,3 +164,18 @@ def clean(s: str) -> str:
 
 def slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+
+def clip(text: str | None, limit: int) -> str:
+    """Shortens text to at most `limit` characters at a word boundary, adding "…"
+    when anything was cut, so stored descriptions never end mid-word."""
+    if not text:
+        return text or ""
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    cut = text[: limit - 1]
+    space = max(cut.rfind(" "), cut.rfind("\n"))
+    if space > limit * 0.6:
+        cut = cut[:space]
+    return cut.rstrip(" ,;:-–—\n") + "…"

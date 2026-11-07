@@ -12,7 +12,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 
-from common import Fetcher, clean, ist_end, ist_start, slug
+from common import Fetcher, clean, ist_end, ist_start, slug, clip
 from pdftext import (extract_amount, extract_eligibility_excerpt, extract_income_limit, extract_objective,
                      pdf_to_text)
 
@@ -187,7 +187,7 @@ def build_record(s: dict, fetcher: Fetcher, now: datetime):
         "title": title,
         "organization": s["ministry"] or "National Scholarship Portal (Government of India)",
         "opportunityType": "fellowship" if re.search(r"fellowship|\bjrf\b|\bsrf\b", name, re.I) else "scholarship",
-        "officialDescription": " ".join(description_parts)[:3900],
+        "officialDescription": clip(" ".join(description_parts), 3900),
         "sourceUrl": PAGE,
         "applicationUrl": APPLY,
         "additionalSources": additional,

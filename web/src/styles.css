@@ -179,6 +179,7 @@ p { margin: 0 0 10px; }
   width: 44px; height: 44px; border-radius: 999px; background: var(--hero); color: var(--mint); display: grid; place-items: center;
   font-weight: 800; font-size: 15px; text-decoration: none !important; flex-shrink: 0;
 }
+.avatar-link { display: inline-flex; border-radius: 999px; text-decoration: none !important; }
 
 /* ---------- Controls ---------- */
 .btn {
@@ -195,7 +196,7 @@ p { margin: 0 0 10px; }
 .btn.on-lead { background: var(--mint); color: #133B39; }
 .icon-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); cursor: pointer; flex-shrink: 0; }
 .icon-btn.active { background: var(--chip-on); color: var(--on-chip-on); border-color: transparent; }
-.link-btn { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 700; cursor: pointer; min-height: 32px; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 700; cursor: pointer; min-height: 32px; display: inline-flex; align-items: center; gap: 4px; }
 
 .field { display: block; margin-bottom: 14px; }
 .field > span, .field > label { display: block; font-size: 14px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }

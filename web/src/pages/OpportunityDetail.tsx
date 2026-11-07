@@ -5,7 +5,7 @@ import { useAsync } from '../lib/useAsync';
 import { useSession } from '../lib/session';
 import { openExternal, reminderPermission, requestReminderPermission, tap } from '../lib/platform';
 import { syncReminders } from '../lib/reminders';
-import { AVAILABILITY_LABEL, formatDate, formatMoney, fromDateInput, OVERALL_LABEL, STATUS_LABEL, toDateInput, TYPE_LABEL } from '../lib/format';
+import { AVAILABILITY_LABEL, clipAtWord, tidyEnding, formatDate, formatMoney, fromDateInput, OVERALL_LABEL, STATUS_LABEL, toDateInput, TYPE_LABEL } from '../lib/format';
 import { APPLICATION_STATUSES, type ApplicationStatus, type EligibilityResult, type Opportunity } from '../lib/types';
 import { DeadlineTag, FitMeter, VerificationTag } from '../components/OpportunityRow';
 import { SaveButton } from '../components/SaveButton';
@@ -84,12 +84,7 @@ export function OpportunityDetail() {
       {o.match && <WhyThis o={o} />}
       <EligibilityReport o={o} />
 
-      {o.officialDescription && (
-        <section className="section">
-          <h2>From the official source</h2>
-          <p className="muted prewrap small">{o.officialDescription}</p>
-        </section>
-      )}
+      {o.officialDescription && <OfficialDescription text={o.officialDescription} sourceUrl={o.sourceUrl} />}
 
       {(o.requiredSkills.length > 0 || o.preferredSkills.length > 0) && (
         <section className="section">
@@ -217,7 +212,7 @@ function EligibilityReport({ o }: { o: Opportunity }) {
                     <div className="crit-head">
                       <span className={`crit-status ${c.status}`} aria-label={c.status}>{c.status === 'met' ? <IconCheck size={14} /> : c.status === 'unmet' ? <IconX size={14} /> : '?'}</span>
                       <div className="grow">
-                        <strong className="small">{c.requirement}</strong>{!c.mandatory && <span className="tag" style={{ marginLeft: 6 }}>Optional</span>}
+                        <strong className="small">{c.requirement}</strong>{!c.mandatory && <>{' '}<span className="tag" style={{ marginLeft: 2 }}>Optional</span></>}
                         <p className="small muted" style={{ margin: '2px 0 0' }}>{c.explanation}</p>
                         {c.nextStep && <p className="small" style={{ margin: '4px 0 0', color: 'var(--accent)' }}>→ {c.nextStep}</p>}
                         {c.sourceExcerpt && <p className="quote">“{c.sourceExcerpt}”</p>}
@@ -321,5 +316,24 @@ function DraftSheet({ o, open, onClose }: { o: Opportunity; open: boolean; onClo
       {err && <div className="notice amber" style={{ marginBottom: 12 }}>{err}</div>}
       <button className="btn block" onClick={go} disabled={busy}><IconChat size={16} /> {busy ? 'Writing…' : 'Generate draft'}</button>
     </Sheet>
+  );
+}
+
+const DESCRIPTION_PREVIEW = 600;
+
+/** Official text, collapsed to a whole-word preview, with the source always one tap away. */
+function OfficialDescription({ text, sourceUrl }: { text: string; sourceUrl: string }) {
+  const [open, setOpen] = useState(false);
+  const full = tidyEnding(text);
+  const long = full.length > DESCRIPTION_PREVIEW + 80;
+  return (
+    <section className="section">
+      <h2>From the official source</h2>
+      <p className="muted prewrap small" id="official-description">{open || !long ? full : clipAtWord(full, DESCRIPTION_PREVIEW)}</p>
+      <div className="row" style={{ gap: 14, flexWrap: 'wrap' }}>
+        {long && <button type="button" className="link-btn small" aria-expanded={open} aria-controls="official-description" onClick={() => setOpen(!open)}>{open ? 'Show less' : 'Read more'}</button>}
+        <button type="button" className="link-btn small" onClick={() => openExternal(sourceUrl)}>Read it on the official source <IconExternal size={14} /></button>
+      </div>
+    </section>
   );
 }

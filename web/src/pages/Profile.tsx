@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, ApiError, serverOverrideAllowed } from '../lib/api';
 import { FIELD_STEP, fieldErrorsFromServer, firstErrorField, focusField, validateAll, type FieldErrors } from '../lib/profileValidation';
 import { ServerSettings } from '../components/ServerSettings';
+import { Avatar } from '../components/Avatar';
 import { useSession, useUser } from '../lib/session';
 import { isNative, platform, reminderPermission, requestReminderPermission, type ReminderPermission } from '../lib/platform';
 import { syncReminders } from '../lib/reminders';
@@ -37,7 +38,7 @@ export function ProfilePage() {
     <div className="page">
       <TopBar title="Profile" back="/" />
       <section className="card row" style={{ alignItems: 'flex-start' }}>
-        <span className="opp-mark" style={{ width: 54, height: 54, fontSize: 24 }}>{user.name.charAt(0).toUpperCase()}</span>
+        <Avatar name={user.name} size={54} />
         <div className="grow">
           <h2 style={{ margin: 0 }}>{user.name}</h2>
           <p className="faint" style={{ margin: 0 }}>{user.email}</p>

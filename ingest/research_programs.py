@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 from bs4 import BeautifulSoup
 
-from common import Blocked, Fetcher, clean, slug
+from common import Blocked, Fetcher, clean, slug, clip
 
 SOURCE_ID = "research"
 
@@ -145,7 +145,7 @@ def build_page(p: dict, html: str, now: datetime, *, source_id: str, kind: str, 
         "title": p["name"][:200],
         "organization": p["org"][:160],
         "opportunityType": kind,
-        "officialDescription": intro[:3000] or None,
+        "officialDescription": clip(intro, 3000) or None,
         "sourceUrl": p["url"],
         "applicationUrl": p["url"],
         "additionalSources": [],

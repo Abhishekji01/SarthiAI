@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useUser } from '../lib/session';
 import { useAsync } from '../lib/useAsync';
-import { daysUntil, greeting, initials, relativeDays } from '../lib/format';
+import { daysUntil, greeting, relativeDays } from '../lib/format';
+import { Avatar } from '../components/Avatar';
 import type { NextMove, OpportunityType, TypeSummary } from '../lib/types';
 import { OpportunityRow } from '../components/OpportunityRow';
 import { Empty, ErrorState, Skeleton } from '../components/ui';
@@ -66,7 +67,7 @@ export function Home() {
           <h1 style={{ margin: 0 }}>{user.name}</h1>
         </div>
         <Link to="/saved" className="icon-btn" aria-label="Saved"><IconBookmark size={18} /></Link>
-        <Link to="/profile" className="avatar" aria-label="Profile">{initials(user.name)}</Link>
+        <Link to="/profile" className="avatar-link" aria-label="Profile"><Avatar name={user.name} /></Link>
       </header>
 
       {/* ---- Bento grid ---- */}

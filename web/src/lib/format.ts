@@ -83,3 +83,32 @@ export function initials(name: string) {
   if (!words.length) return '?';
   return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase();
 }
+
+/**
+ * Initials for a person's avatar: letters only (any script), first + last word.
+ * Returns null when the name has no letters, so callers can show an icon instead.
+ */
+export function personInitials(name: string | null | undefined): string | null {
+  const words = String(name ?? '').normalize('NFC').split(/\s+/).map((w) => w.replace(/[^\p{L}]/gu, '')).filter(Boolean);
+  if (!words.length) return null;
+  const first = [...words[0]][0];
+  const last = words.length > 1 ? [...words[words.length - 1]][0] : '';
+  return (first + last).toLocaleUpperCase('en-IN');
+}
+
+/** Cuts text at a word boundary and adds "…" when anything was removed. */
+export function clipAtWord(text: string, max: number) {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max - 1);
+  const space = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf('\n'));
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:–—-]+$/, '')}…`;
+}
+
+/** Text stored before scrapers clipped at word boundaries may end mid-word; tidy it for display. */
+export function tidyEnding(text: string, limitHint = 3000) {
+  const t = text.trim();
+  if (t.length < limitHint || /[.!?…)"”\]]$/.test(t)) return t;
+  const space = t.lastIndexOf(' ');
+  return `${(space > t.length - 60 ? t.slice(0, space) : t).replace(/[\s,;:–—-]+$/, '')}…`;
+}

@@ -9,3 +9,25 @@ describe('format helpers', () => {
     expect(formatMoney({ amount: 125000, currency: 'INR', period: 'per_year' } as never)).toBe('₹1,25,000/year');
   });
 });
+
+import { clipAtWord, personInitials, tidyEnding } from './format';
+
+describe('L5: display helpers', () => {
+  it('avatar initials use letters only, the same everywhere', () => {
+    expect(personInitials('Isha Sharma')).toBe('IS');
+    expect(personInitials('isha')).toBe('I');
+    expect(personInitials('Isha Rani Sharma')).toBe('IS');
+    expect(personInitials('राहुल कुमार')).toBe('रक');
+    expect(personInitials('<')).toBeNull();
+    expect(personInitials('  ')).toBeNull();
+  });
+  it('clips at a word boundary with an ellipsis', () => {
+    expect(clipAtWord('Competitive stipend and stay provided for students', 28)).toBe('Competitive stipend and…');
+    expect(clipAtWord('Short text', 28)).toBe('Short text');
+  });
+  it('tidies stored text that was cut mid-word', () => {
+    const cut = `${'word '.repeat(700)}Competitive stipend and sta`;
+    expect(tidyEnding(cut)).toMatch(/Competitive stipend and…$/);
+    expect(tidyEnding('A complete sentence.')).toBe('A complete sentence.');
+  });
+});
