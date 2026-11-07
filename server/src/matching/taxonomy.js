@@ -200,7 +200,8 @@ const STATE_ALIASES = {
   nagaland: ['nl'], odisha: ['od', 'orissa'], punjab: ['pb'], rajasthan: ['rj'], sikkim: ['sk'], tamilnadu: ['tn'],
   telangana: ['ts', 'tg'], tripura: ['tr'], uttarpradesh: ['up'], uttarakhand: ['uk', 'uttaranchal'], westbengal: ['wb'],
   delhi: ['dl', 'newdelhi', 'nctofdelhi'], jammuandkashmir: ['jk', 'jammukashmir'], ladakh: ['la'], puducherry: ['py', 'pondicherry'],
-  chandigarh: ['ch'], andamanandnicobarislands: ['an'], lakshadweep: ['ld'], dadraandnagarhavelianddamananddiu: ['dnhdd'],
+  chandigarh: ['ch'], andamanandnicobarislands: ['an', 'andamanandnicobar', 'andamannicobar', 'andaman'], lakshadweep: ['ld'],
+  dadraandnagarhavelianddamananddiu: ['dnhdd', 'dadraandnagarhaveli', 'damananddiu', 'dnh', 'dd'],
 };
 const STATE_LOOKUP = new Map();
 for (const [s, aliases] of Object.entries(STATE_ALIASES)) {

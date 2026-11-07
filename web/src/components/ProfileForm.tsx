@@ -4,13 +4,13 @@ import type { College, Profile, Project, User } from '../lib/types';
 import { Field, TokenEditor } from './ui';
 import { fieldId, type FieldErrors } from '../lib/profileValidation';
 import { incomeDigits } from '../../../shared/profileRules.js';
+import { OTHER_STATE, STATES, UNION_TERRITORIES } from '../../../shared/states.js';
 import { IconPlus, IconTrash } from './icons';
 
 export const DEGREES = ['B.Tech', 'B.E.', 'BCA', 'B.Sc', 'BS', 'B.Com', 'BA', 'BBA', 'B.Arch', 'B.Pharm', 'MBBS', 'B.Des', 'LLB', 'M.Tech', 'M.E.', 'MCA', 'M.Sc', 'MBA', 'MA', 'Diploma', 'Integrated', 'PhD', 'Other'];
 export const BRANCHES = ['Computer Science and Engineering', 'Information Technology', 'AI & Machine Learning', 'Data Science', 'Cybersecurity', 'Electronics and Communication', 'Electrical Engineering', 'Mechanical Engineering', 'Civil Engineering', 'Chemical Engineering', 'Biotechnology'];
 export const SKILLS = ['Python', 'Java', 'C++', 'JavaScript', 'React', 'Node.js', 'SQL', 'Git', 'Linux', 'Networking', 'Machine Learning', 'Data Analysis', 'Web Security', 'Android', 'Figma', 'Communication'];
 export const INTERESTS = ['Scholarships', 'Internships', 'Research', 'AI/ML', 'Cybersecurity', 'Web Development', 'Open Source', 'Hackathons', 'Data Science', 'Government programmes', 'Startups', 'Space science'];
-export const STATES = ['Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand', 'Karnataka', 'Kerala', 'Ladakh', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Other'];
 export const LOCATIONS = ['Delhi NCR', 'Bengaluru', 'Mumbai', 'Hyderabad', 'Pune', 'Chennai', 'Kolkata'];
 
 /** Editable copy of the profile. Converted to an API patch with toPatch(). */
@@ -182,7 +182,9 @@ export function PreferenceFields({ draft, set, errors = {} }: FormProps) {
           <Field label="Home state" error={errors.homeState}>
             <select id={fieldId('homeState')} className="input" value={draft.homeState} onChange={(e) => set({ homeState: e.target.value })}>
               <option value="">Prefer not to say</option>
-              {STATES.map((s) => <option key={s}>{s}</option>)}
+              <optgroup label="States">{STATES.map((s) => <option key={s}>{s}</option>)}</optgroup>
+              <optgroup label="Union territories">{UNION_TERRITORIES.map((s) => <option key={s}>{s}</option>)}</optgroup>
+              <option value={OTHER_STATE}>Other (outside India)</option>
             </select>
           </Field>
           <Field label="Annual family income (₹)" error={errors.income}>

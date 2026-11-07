@@ -6,6 +6,7 @@ import { ANNOUNCEMENT_CATEGORIES } from '../models/Announcement.js';
 import { DRAFT_KINDS } from '../models/Draft.js';
 import { passwordSchema } from '../auth/passwordRules.js';
 import { LIMITS, cgpaNumberError, tagListError } from '../../../shared/profileRules.js';
+import { isHomeStateOption } from '../../../shared/states.js';
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
 const str = (max) => z.string().trim().max(max);
@@ -74,7 +75,7 @@ export const profilePatchSchema = z.object({
     achievements: z.array(str(300).min(1)).max(20).optional(),
     preferredLocations: tagList(10, 60).optional(),
     workModes: z.array(z.enum(['remote', 'hybrid', 'onsite'])).max(3).optional(),
-    homeState: z.union([str(60), z.null()]).optional(),
+    homeState: z.union([str(60).refine(isHomeStateOption, 'Choose a state or union territory from the list'), z.null()]).optional(),
     annualFamilyIncomeINR: z.union([z.number().int('Enter a whole number of rupees').min(0, 'Income cannot be negative').max(LIMITS.incomeMax, 'That amount looks too large'), z.null()]).optional(),
     links: z.object({
       github: z.union([httpsUrl, z.literal('')]).optional(),

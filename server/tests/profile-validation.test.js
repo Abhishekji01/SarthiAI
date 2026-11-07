@@ -42,3 +42,27 @@ describe('H3: profile limits shared with the forms', () => {
     expect((await patch({ degree: 'B.Tech', currentYear: 4, graduationYear: max })).status).toBe(200);
   });
 });
+
+describe('L3: one list of states and union territories', async () => {
+  const { HOME_STATE_OPTIONS, UNION_TERRITORIES } = await import('../../shared/states.js');
+  const { checkEligibility } = await import('../src/eligibility/engine.js');
+
+  it('includes all 8 union territories, including the four that were missing', () => {
+    expect(UNION_TERRITORIES).toHaveLength(8);
+    for (const ut of ['Chandigarh', 'Andaman and Nicobar Islands', 'Lakshadweep', 'Dadra and Nagar Haveli and Daman and Diu']) expect(HOME_STATE_OPTIONS).toContain(ut);
+    expect(HOME_STATE_OPTIONS).toHaveLength(28 + 8 + 1);
+  });
+
+  it('the API accepts every option and rejects anything else', async () => {
+    for (const homeState of HOME_STATE_OPTIONS) expect((await patch({ homeState })).status, homeState).toBe(200);
+    expect(fields(await patch({ homeState: 'Atlantis' }))).toEqual(['profile.homeState']);
+    expect((await patch({ homeState: null })).status).toBe(200);
+  });
+
+  it('domicile rules match union territories by name or common short form', () => {
+    const opp = { verificationStatus: 'verified', eligibilityRules: [{ key: 'dom', kind: 'home_state_in', label: 'Domicile: Chandigarh, DNH & DD', values: ['Chandigarh', 'Dadra and Nagar Haveli', 'Daman and Diu'] }] };
+    expect(checkEligibility(opp, { homeState: 'Chandigarh' }).criteria[0].status).toBe('met');
+    expect(checkEligibility(opp, { homeState: 'Dadra and Nagar Haveli and Daman and Diu' }).criteria[0].status).toBe('met');
+    expect(checkEligibility(opp, { homeState: 'Lakshadweep' }).criteria[0].status).toBe('unmet');
+  });
+});
