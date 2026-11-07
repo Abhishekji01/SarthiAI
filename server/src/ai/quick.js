@@ -4,6 +4,7 @@ import { Application } from '../models/Application.js';
 import { istDate } from './context.js';
 import { calendarDaysUntil, deadlineWindowEnd } from '../utils/dates.js';
 import { OPPORTUNITY_TYPES } from '../models/Opportunity.js';
+import { isOffTopic, scopeReply } from './scope.js';
 
 /**
  * Quick answers: a deterministic, no-LLM fallback for the assistant.
@@ -55,13 +56,15 @@ function describe(o, now) {
 export async function quickAnswer(user, message, { now = new Date() } = {}) {
   const win = WINDOWS.find((w) => w.rx.test(message));
   const type = TYPE_WORDS.find(([, rx]) => rx.test(message))?.[0];
-  const intent = PRIVATE_RX.test(message) ? 'private'
+  const intent = isOffTopic(message) ? 'scope' : PRIVATE_RX.test(message) ? 'private'
     : win && (type || /\b(apply|open|closing|close|deadline)/i.test(message)) && !/\b(my|mere|meri) (deadlines?|applications?)\b/i.test(message) ? 'window'
       : INTENTS.find((i) => i.rx.test(message))?.id ?? 'search';
   let reply;
   let citations = [];
 
-  if (intent === 'private') {
+  if (intent === 'scope') {
+    reply = (await scopeReply(message)).reply;
+  } else if (intent === 'private') {
     reply = 'That’s kept private from me. Your income, home state and other private scholarship details are never shared with Sarthi; the eligibility checks on each listing use them automatically. You can see or change them in Profile ▸ Edit profile ▸ Preferences.';
   } else if (intent === 'window') {
     const typeLabel = type ? `${type}s` : 'opportunities';

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAI } from './provider.js';
 import { profileForModel, opportunityForModel, opportunityBrief, ELIGIBILITY_LABEL, PRIVATE_FIELDS_NOTICE, UNTRUSTED_NOTICE, istDate } from './context.js';
 import { DEADLINE_WINDOWS, deadlineWindowEnd } from '../utils/dates.js';
+import { containsCode, isOffTopic, resourcesFor, scopeReply } from './scope.js';
 import { buildEvidence, findUngroundedClaims } from './grounding.js';
 import { searchOpportunities, getVisibleOpportunity, recommendedMatches } from '../services/opportunities.js';
 import { getDeadlines, getNextMoves } from '../services/nextMoves.js';
@@ -28,6 +29,7 @@ Rules you must always follow:
 9. Work step by step: for "what should I apply to" questions call get_recommendations (and search_opportunities for a specific field) before answering; for "am I eligible" call check_eligibility for each listing you discuss. Prefer calling tools in parallel when you need several.
 12. For any question about a time window — "this month", "this week", "upcoming", "closing soon", "is mahine", "is hafte" — call search_opportunities with deadline_window (plus type when the student names one, e.g. scholarships). It returns every matching listing sorted by deadline. Mention every result (group them if there are many), not just the first one; say which ones need the student to "confirm eligibility", and mention how many were left out as likely not eligible.
 13. If nothing matches, say so plainly without naming unrelated listings.
+14. Stay in scope: opportunities, eligibility, applications, career planning, interview preparation and learning paths. Do not write code, solve assignments or homework, or answer unrelated general questions. Decline those in one or two friendly sentences and offer an in-scope next step; for learning a skill, call find_learning_resources and point to what it returns. Never include code in a reply.
 10. When you state a deadline or an amount, copy it exactly from a tool result and name the listing it belongs to. If a value is "unknown", say it is unknown.
 11. Reply in the language the student writes in (English, Hindi or Hinglish are all fine).`;
 
@@ -53,6 +55,7 @@ const TOOLS = [
     },
   },
   { name: 'get_recommendations', description: 'Get the best verified, currently open or upcoming opportunities for this student, excluding ones they are likely ineligible for.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
+  { name: 'find_learning_resources', description: 'Verified learning resources from the SarthiAI catalogue for a skill or topic (e.g. "python", "web security"). Use these instead of naming courses from memory.', parameters: { type: 'object', properties: { topic: { type: 'string', maxLength: 80 } }, required: ['topic'], additionalProperties: false } },
   { name: 'get_opportunity', description: 'Get full details of one opportunity by id.', parameters: { type: 'object', properties: { opportunity_id: { type: 'string' } }, required: ['opportunity_id'], additionalProperties: false } },
   { name: 'check_eligibility', description: 'Run the deterministic eligibility check for one opportunity against the student profile.', parameters: { type: 'object', properties: { opportunity_id: { type: 'string' } }, required: ['opportunity_id'], additionalProperties: false } },
   { name: 'get_my_deadlines', description: "List the student's upcoming deadlines and next actions from their tracker and saved items.", parameters: { type: 'object', properties: {}, additionalProperties: false } },
@@ -123,6 +126,12 @@ async function executeTool(name, rawArgs, ctx) {
       } catch {
         return { error: 'Opportunity not found or not visible to this student.' };
       }
+    }
+    case 'find_learning_resources': {
+      const parsed = z.object({ topic: z.string().min(1).max(80) }).safeParse(args);
+      if (!parsed.success) return { error: 'Give a topic.' };
+      const found = await resourcesFor(parsed.data.topic, 5);
+      return { resources: found.map((r) => ({ title: r.title, provider: r.provider, cost: r.cost, url: r.url, skills: r.skills })), note: found.length ? 'Verified links from the SarthiAI catalogue.' : 'No verified resources for this topic yet.' };
     }
     case 'get_my_deadlines':
       return { deadlines: (await getDeadlines(user, { now })).map((d) => ({ ...d, date: istDate(d.date) })) };
@@ -233,6 +242,9 @@ function profileSnapshot(user) {
 
 export async function runSaathi(user, { messages, contextOpportunityId }, { now = new Date() } = {}) {
   const ai = requireAI();
+  const last = messages.filter((m) => m.role === 'user').at(-1)?.content ?? '';
+  // Coding and homework requests are redirected without spending a model call.
+  if (isOffTopic(last)) return { ...(await scopeOnlyReply(last)), model: ai.model };
   const ctx = { user, now, seen: new Map(), proposals: [], toolsUsed: [] };
   const today = istDate(now);
 
@@ -305,6 +317,9 @@ export async function runSaathi(user, { messages, contextOpportunityId }, { now 
     }
   }
 
+  // Belt and braces: a reply with code in it is replaced by the scope message.
+  if (containsCode(text)) return { ...(await scopeOnlyReply(last)), toolsUsed: [...new Set(ctx.toolsUsed)], model: ai.model };
+
   // Only listings the reply names; "I couldn't find X" gets no citations.
   const citations = citationsMentioned(text, [...ctx.seen.values()]);
   return {
@@ -315,4 +330,9 @@ export async function runSaathi(user, { messages, contextOpportunityId }, { now 
     grounding: { status: groundingStatus, unverifiedClaims: ungrounded.map((c) => c.text) },
     model: ai.model,
   };
+}
+
+async function scopeOnlyReply(message) {
+  const { reply } = await scopeReply(message);
+  return { reply, citations: [], proposedActions: [], toolsUsed: ['scope_guard'], grounding: { status: 'verified', unverifiedClaims: [] } };
 }
