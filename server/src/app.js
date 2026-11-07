@@ -46,7 +46,8 @@ export function createApp() {
   // https://localhost / capacitor://localhost, which are always allowed.
   const APP_ORIGINS = ['https://localhost', 'http://localhost', 'capacitor://localhost'];
   const origins = [...APP_ORIGINS, ...env.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)];
-  app.use(cors({ origin: origins }));
+  // Cookies are only used by the web app on its own origin; credentialed CORS stays off.
+  app.use(cors({ origin: origins, allowedHeaders: ['Content-Type', 'Authorization', 'X-Sarthi-Client'] }));
   app.use(express.json({ limit: '200kb' }));
 
   app.get('/health', (_req, res) => res.json({ status: 'ok', uptimeSeconds: Math.round(process.uptime()) }));

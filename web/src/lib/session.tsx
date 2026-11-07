@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { api, ApiError, loadClientState, sessionEvents, setToken } from './api';
+import { api, ApiError, loadClientState, markSessionActive, sessionEvents, setToken, usesCookieSession } from './api';
 import type { User } from './types';
 import { syncReminders } from './reminders';
 
@@ -15,7 +15,7 @@ interface SessionValue {
   register: (name: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   /** Signs in with a token the server just issued (e.g. after a password reset). */
-  adoptSession: (token: string, user: User) => Promise<void>;
+  adoptSession: (token: string | null, user: User) => Promise<void>;
   setUser: (u: User) => void;
   refreshUser: () => Promise<void>;
 }
@@ -30,16 +30,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (started.current) return;
     started.current = true;
     (async () => {
-      const { hasToken } = await loadClientState();
+      const { hasToken, legacyToken } = await loadClientState();
       if (!hasToken) return setState({ status: 'signedOut' });
       try {
+        if (legacyToken) {
+          // Older versions kept the token in localStorage: move it into the httpOnly cookie.
+          await api.upgradeSession().catch(() => {});
+          await setToken(null);
+        }
         const user = await api.me();
+        markSessionActive(true);
         setState({ status: 'signedIn', user });
         syncReminders(user).catch(() => {});
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) {
           await setToken(null);
-          setState({ status: 'signedOut', notice: 'Your session expired. Please sign in again.' });
+          // With cookies, "no session" is the normal state for a new visitor: no notice.
+          setState({ status: 'signedOut', notice: usesCookieSession() && !legacyToken ? undefined : 'Your session expired. Please sign in again.' });
         } else {
           // Offline or server unreachable: keep the token, show the error on sign-in screen.
           setState({ status: 'signedOut', notice: e instanceof Error ? e.message : 'Could not restore your session.', networkError: e instanceof ApiError && e.code === 'NETWORK' });
@@ -50,6 +57,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onExpired = async () => {
+      markSessionActive(false);
       await setToken(null);
       setState({ status: 'signedOut', notice: 'Your session expired. Please sign in again.' });
     };
@@ -60,6 +68,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     const { token, user } = await api.login({ email, password });
     await setToken(token);
+    markSessionActive(true);
     setState({ status: 'signedIn', user });
     syncReminders(user).catch(() => {});
   }, []);
@@ -67,17 +76,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async (name: string, email: string, password: string) => {
     const { token, user } = await api.register({ name, email, password });
     await setToken(token);
+    markSessionActive(true);
     setState({ status: 'signedIn', user });
   }, []);
 
   const signOut = useCallback(async () => {
     try { await api.logout(); } catch { /* sign out locally regardless */ }
+    markSessionActive(false);
     await setToken(null);
     setState({ status: 'signedOut' });
   }, []);
 
-  const adoptSession = useCallback(async (token: string, user: User) => {
+  const adoptSession = useCallback(async (token: string | null, user: User) => {
     await setToken(token);
+    markSessionActive(true);
     setState({ status: 'signedIn', user });
     syncReminders(user).catch(() => {});
   }, []);

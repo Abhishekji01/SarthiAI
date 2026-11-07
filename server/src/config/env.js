@@ -22,6 +22,8 @@ const schema = z.object({
   GEMINI_FALLBACK_MODEL: z.string().default('gemini-flash-latest'),
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   AI_REQUESTS_PER_HOUR: z.coerce.number().int().positive().default(40),
+  // Sign-up / sign-in requests per IP per 15 minutes (end-to-end tests raise it).
+  AUTH_REQUESTS_PER_15_MIN: z.coerce.number().int().positive().default(20),
   ENABLE_DAILY_REFRESH: z.enum(['true', 'false']).optional(),
   REFRESH_HOUR_IST: z.coerce.number().int().min(0).max(23).default(3),
   REFRESH_ON_START: z.enum(['true', 'false']).default('false'),

@@ -2,6 +2,10 @@ import mongoose from 'mongoose';
 import { User } from '../models/User.js';
 import { verifyToken } from '../auth/tokens.js';
 import { forbidden, unauthorized } from '../utils/errors.js';
+import { csrfOk, readCookie, SESSION_COOKIE } from '../auth/session.js';
+import { env } from '../config/env.js';
+
+const allowedOrigins = () => env.CORS_ORIGINS.split(',').map((x) => x.trim()).filter(Boolean);
 
 /**
  * Authenticates the bearer token and loads the user. Identity always comes
@@ -9,8 +13,15 @@ import { forbidden, unauthorized } from '../utils/errors.js';
  */
 export async function requireAuth(req, _res, next) {
   const header = req.get('authorization') ?? '';
-  const [scheme, token] = header.split(' ');
-  if (scheme !== 'Bearer' || !token) throw unauthorized();
+  const [scheme, bearer] = header.split(' ');
+  let token = scheme === 'Bearer' && bearer ? bearer : null;
+  if (!token) {
+    // Web app: httpOnly session cookie, with CSRF checks on state-changing requests.
+    token = readCookie(req, SESSION_COOKIE);
+    if (token && !csrfOk(req, allowedOrigins())) throw forbidden('This request did not come from the SarthiAI app.');
+    if (token) req.sessionVia = 'cookie';
+  }
+  if (!token) throw unauthorized();
 
   let payload;
   try {

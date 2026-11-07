@@ -18,7 +18,7 @@ test.describe('H1: production build ignores a stored server override', () => {
     await page.goto('/profile');
     await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
     await expect(page.getByText('Developer · server')).toHaveCount(0);
-    await page.evaluate(() => localStorage.removeItem('sarthi.token'));
+    await page.context().clearCookies();
     await page.goto('/welcome');
     await expect(page.getByRole('button', { name: 'Server settings' })).toHaveCount(0);
   });

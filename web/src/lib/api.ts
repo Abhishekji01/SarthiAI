@@ -21,6 +21,16 @@ export const serverOverrideAllowed = buildFlags.overrideAllowed;
 
 let baseUrl = DEFAULT_SERVER_URL;
 let token: string | null = null;
+/** True once the app knows it is signed in; only then does a 401 mean "session expired". */
+let active = false;
+export const markSessionActive = (v: boolean) => { active = v; };
+
+/**
+ * The web app keeps its session in an httpOnly cookie set by the server (page
+ * scripts cannot read it). The Android app, and dev builds pointed at another
+ * server, use a bearer token kept in app storage.
+ */
+export const usesCookieSession = () => !isNative && !usingCustomServer();
 
 export async function loadClientState() {
   const { baseUrl: resolved, clearStored } = resolveBaseUrl(await storage.get(SERVER_KEY), DEFAULT_SERVER_URL);
@@ -28,7 +38,9 @@ export async function loadClientState() {
   if (clearStored) await storage.set(SERVER_KEY, null);
   baseUrl = resolved;
   token = await storage.get(TOKEN_KEY);
-  return { hasToken: Boolean(token), baseUrl };
+  // Web: a token left in localStorage by an older version is moved into the cookie, then deleted.
+  const legacyToken = usesCookieSession() && Boolean(token);
+  return { hasToken: Boolean(token) || usesCookieSession(), legacyToken, baseUrl };
 }
 export const getServerUrl = () => baseUrl;
 /** True while a developer server override is in effect. */
@@ -80,7 +92,12 @@ async function request<T>(method: string, path: string, { body, query }: { body?
   try {
     res = await fetch(`${baseUrl}/api${path}${qs === '?' ? '' : qs}`, {
       method,
-      headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token && shouldAttachToken(baseUrl, DEFAULT_SERVER_URL) ? { Authorization: `Bearer ${token}` } : {}) },
+      headers: {
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(usesCookieSession() ? { 'X-Sarthi-Client': 'web' } : {}),
+        ...(token && shouldAttachToken(baseUrl, DEFAULT_SERVER_URL) ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: usesCookieSession() ? 'same-origin' : 'omit',
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -90,7 +107,7 @@ async function request<T>(method: string, path: string, { body, query }: { body?
   try { json = await res.json(); } catch { /* empty body */ }
   if (!res.ok) {
     const err = json?.error ?? {};
-    if (res.status === 401 && token) sessionEvents.dispatchEvent(new Event('expired'));
+    if (res.status === 401 && active) sessionEvents.dispatchEvent(new Event('expired'));
     throw new ApiError(res.status, err.code ?? `HTTP_${res.status}`, err.message ?? 'Something went wrong. Please try again.', err.details);
   }
   return json ?? { data: null };
@@ -111,11 +128,12 @@ export type ProfilePatch = { name?: string; profile?: Partial<Profile> & { custo
 export const api = {
   health: () => fetch(`${baseUrl}/health`).then((r) => r.ok).catch(() => false),
 
-  register: (b: { name: string; email: string; password: string }) => post<{ token: string; user: User }>('/auth/register', b),
-  login: (b: { email: string; password: string }) => post<{ token: string; user: User }>('/auth/login', b),
+  register: (b: { name: string; email: string; password: string }) => post<{ token: string | null; user: User }>('/auth/register', b),
+  login: (b: { email: string; password: string }) => post<{ token: string | null; user: User }>('/auth/login', b),
+  upgradeSession: () => post<{ session: 'cookie' }>('/auth/session'),
   logout: () => post<{ signedOut: boolean }>('/auth/logout'),
   forgotPassword: (email: string) => post<{ sent: boolean; message: string }>('/auth/forgot-password', { email }),
-  resetPassword: (token: string, password: string) => post<{ reset: boolean; token: string; user: User }>('/auth/reset-password', { token, password }),
+  resetPassword: (token: string, password: string) => post<{ reset: boolean; token: string | null; user: User }>('/auth/reset-password', { token, password }),
   me: () => get<{ user: User }>('/auth/me').then((d) => d.user),
 
   updateProfile: (b: ProfilePatch) => patch<{ user: User }>('/profile', b).then((d) => d.user),
