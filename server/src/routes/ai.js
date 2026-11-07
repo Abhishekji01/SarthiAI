@@ -12,6 +12,7 @@ import { checkEligibility } from '../eligibility/engine.js';
 import { scoreOpportunity } from '../matching/engine.js';
 import { Roadmap } from '../models/Roadmap.js';
 import { Resource } from '../models/Resource.js';
+import { answersFor } from '../models/EligibilityAnswer.js';
 import { Draft, serializeDraft } from '../models/Draft.js';
 import { presentRoadmap } from './roadmap.js';
 import { send } from '../utils/http.js';
@@ -40,7 +41,7 @@ router.post('/roadmap', validate({ body: roadmapGenerateSchema }), async (req, r
   requireAI();
   const { goal, opportunityId } = req.valid.body;
   const opportunity = opportunityId ? await getVisibleOpportunity(req.user, opportunityId) : null;
-  const eligibility = opportunity ? checkEligibility(opportunity, req.user.profile) : null;
+  const eligibility = opportunity ? checkEligibility(opportunity, req.user.profile, { declarations: (await answersFor(req.user._id, [opportunity._id])).get(String(opportunity._id)) ?? {} }) : null;
   const resources = await Resource.find().lean();
   const generated = await generateRoadmap(req.user, { goal, opportunity, eligibility, resources });
 
@@ -93,7 +94,7 @@ router.post('/resume', validate({ body: resumeSchema }), async (req, res) => {
 router.post('/explain-match/:id', validate({ params: idParams }), async (req, res) => {
   requireAI();
   const opportunity = await getVisibleOpportunity(req.user, req.valid.params.id);
-  const eligibility = checkEligibility(opportunity, req.user.profile);
+  const eligibility = checkEligibility(opportunity, req.user.profile, { declarations: (await answersFor(req.user._id, [opportunity._id])).get(String(opportunity._id)) ?? {} });
   const match = scoreOpportunity(opportunity, req.user.profile, { eligibility });
   const result = await explainMatch(req.user, { opportunity, eligibility, match });
   send(res, { ...result, generatedBy: 'ai', basedOn: { eligibilityOverall: eligibility.overall, factors: match.factors } });

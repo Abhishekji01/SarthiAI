@@ -154,7 +154,9 @@ export const api = {
   unsave: (id: string) => del(`/opportunities/${id}/save`),
   saved: () => get<Opportunity[]>('/saved'),
   matches: (q: { limit?: number; tier?: 'recommended' | 'all' } = {}) => getWithMeta<Opportunity[]>('/matches', q),
-  checkEligibility: (opportunityId: string, declarations?: Record<string, boolean>) => post<EligibilityResult>('/eligibility/check', { opportunityId, declarations }),
+  checkEligibility: (opportunityId: string, declarations?: Record<string, boolean>) => post<EligibilityResult & { savedAnswers?: Record<string, boolean> }>('/eligibility/check', { opportunityId, declarations }),
+  saveAnswer: (opportunityId: string, key: string, answer: boolean | null) => request<unknown>('PUT', '/eligibility/answers', { body: { opportunityId, key, answer } }),
+  clearAnswers: (opportunityId?: string) => request<{ cleared: number }>('DELETE', '/eligibility/answers', { query: { opportunityId } }).then((r) => r.data),
 
   applications: (archived = false) => get<Application[]>('/applications', { archived }),
   createApplication: (b: Partial<Application> & { opportunityId?: string | null }) => post<Application>('/applications', b),

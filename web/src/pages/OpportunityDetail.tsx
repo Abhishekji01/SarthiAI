@@ -161,13 +161,25 @@ function EligibilityReport({ o }: { o: Opportunity }) {
   const [result, setResult] = useState<EligibilityResult | null>(null);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<Error | null>(null);
+  const [version, setVersion] = useState(0);
+  const toast = useToast();
 
+  // Remembered answers come back with the check, so it opens the way the student left it.
   useEffect(() => {
     if (!open) return;
     let live = true;
-    api.checkEligibility(o.id, answers).then((r) => live && setResult(r)).catch((e) => live && setError(e));
+    api.checkEligibility(o.id).then((r) => { if (!live) return; setResult(r); setAnswers(r.savedAnswers ?? {}); }).catch((e) => live && setError(e));
     return () => { live = false; };
-  }, [open, answers, o.id]);
+  }, [open, o.id, version]);
+
+  const answer = async (key: string, v: boolean) => {
+    const next = answers[key] === v ? null : v;
+    setAnswers((a) => { const n = { ...a }; if (next === null) delete n[key]; else n[key] = next; return n; });
+    try { await api.saveAnswer(o.id, key, next); setVersion((x) => x + 1); } catch (e) { toast((e as Error).message); setVersion((x) => x + 1); }
+  };
+  const clear = async () => {
+    try { await api.clearAnswers(o.id); setVersion((x) => x + 1); toast('Your answers for this listing were cleared'); } catch (e) { toast((e as Error).message); }
+  };
 
   const overall = result ? OVERALL_LABEL[result.overall] : null;
   return (
@@ -202,7 +214,7 @@ function EligibilityReport({ o }: { o: Opportunity }) {
                             <span className="small faint">Does this apply to you?</span>
                             {[true, false].map((v) => (
                               <button key={String(v)} className={`chip ${answers[c.key] === v ? 'on' : ''}`} aria-pressed={answers[c.key] === v}
-                                onClick={() => setAnswers((a) => { const n = { ...a }; if (n[c.key] === v) delete n[c.key]; else n[c.key] = v; return n; })}>
+                                onClick={() => answer(c.key, v)}>
                                 {answers[c.key] === v && <IconCheck size={14} />} {v ? 'Yes' : 'No'}
                               </button>
                             ))}
@@ -214,7 +226,8 @@ function EligibilityReport({ o }: { o: Opportunity }) {
                 ))}
               </ul>
               {result.caveats.map((c) => <div key={c.code} className="notice amber" style={{ marginTop: 8 }}>{c.message}</div>)}
-              <p className="tiny faint" style={{ marginTop: 10 }}>{result.disclaimer} Your Yes/No answers are used for this check only and are not saved.</p>
+              <p className="tiny faint" style={{ marginTop: 10 }}>{result.disclaimer} Your Yes/No answers are saved for this listing and used when SarthiAI ranks your matches.</p>
+              {Object.keys(answers).length > 0 && <button type="button" className="link-btn small" onClick={clear}>Clear my answers for this listing</button>}
             </>
           )}
         </div>

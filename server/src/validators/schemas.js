@@ -141,6 +141,15 @@ export const matchesQuerySchema = z.object({
   tier: z.enum(['recommended', 'all']).default('recommended'),
 });
 
+export const eligibilityAnswerSchema = z.object({
+  opportunityId: objectId,
+  key: z.string().trim().regex(/^[a-z0-9_]{1,60}$/),
+  // null forgets the answer.
+  answer: z.union([z.boolean(), z.null()]),
+});
+
+export const eligibilityAnswersQuery = z.object({ opportunityId: objectId.optional() });
+
 export const eligibilityCheckSchema = z.object({
   opportunityId: objectId,
   declarations: z.record(z.string().max(60), z.boolean()).optional(),

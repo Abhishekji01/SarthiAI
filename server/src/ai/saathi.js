@@ -11,6 +11,7 @@ import { checkEligibility, eligibilityForModel } from '../eligibility/engine.js'
 import { computeAvailability, OPPORTUNITY_TYPES } from '../models/Opportunity.js';
 import { Roadmap } from '../models/Roadmap.js';
 import { Application } from '../models/Application.js';
+import { answersFor } from '../models/EligibilityAnswer.js';
 import { logger } from '../utils/logger.js';
 
 const MAX_STEPS = 6;
@@ -121,7 +122,8 @@ async function executeTool(name, rawArgs, ctx) {
       try {
         const o = await getVisibleOpportunity(user, parsed.data.opportunity_id);
         remember(o);
-        const r = checkEligibility(o, user.profile, { now });
+        const saved = (await answersFor(user._id, [o._id])).get(String(o._id)) ?? {};
+        const r = checkEligibility(o, user.profile, { now, declarations: saved });
         // Private criteria (income, home state, category…) are redacted: the model never sees those details.
         return { opportunity: o.title, ...eligibilityForModel(r), caveats: r.caveats.map((c) => c.message), disclaimer: r.disclaimer };
       } catch {

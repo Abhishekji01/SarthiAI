@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { opportunityQuerySchema, idParams, eligibilityCheckSchema, matchesQuerySchema } from '../validators/schemas.js';
+import { opportunityQuerySchema, idParams, eligibilityCheckSchema, matchesQuerySchema, eligibilityAnswerSchema, eligibilityAnswersQuery } from '../validators/schemas.js';
+import { EligibilityAnswer, answersFor } from '../models/EligibilityAnswer.js';
+import { badRequest } from '../utils/errors.js';
 import { inPersonPlaces, openSummary, searchOpportunities, getVisibleOpportunity, recommendedMatches, userStateFor, presentWithMatch, visibilityFilter } from '../services/opportunities.js';
 import { checkEligibility } from '../eligibility/engine.js';
 import { SavedOpportunity } from '../models/SavedOpportunity.js';
@@ -71,6 +73,33 @@ export const eligibilityRouter = Router();
 eligibilityRouter.use(requireAuth);
 eligibilityRouter.post('/check', validate({ body: eligibilityCheckSchema }), async (req, res) => {
   const opp = await getVisibleOpportunity(req.user, req.valid.body.opportunityId);
-  const result = checkEligibility(opp, req.user.profile, { declarations: req.valid.body.declarations });
-  send(res, { ...result, opportunity: serializeOpportunity(opp) });
+  const saved = (await answersFor(req.user._id, [opp._id])).get(String(opp._id)) ?? {};
+  // Remembered answers, overridden by any given with this request.
+  const declarations = { ...saved, ...(req.valid.body.declarations ?? {}) };
+  const result = checkEligibility(opp, req.user.profile, { declarations });
+  send(res, { ...result, savedAnswers: saved, opportunity: serializeOpportunity(opp) });
+});
+
+/** The student's remembered Yes/No answers (all, or for one listing). */
+eligibilityRouter.get('/answers', validate({ query: eligibilityAnswersQuery }), async (req, res) => {
+  const map = await answersFor(req.user._id, req.valid.query.opportunityId ? [req.valid.query.opportunityId] : undefined);
+  send(res, Object.fromEntries(map));
+});
+
+/** Remembers (or, with answer: null, forgets) one answer. Only for criteria the student confirms themselves. */
+eligibilityRouter.put('/answers', validate({ body: eligibilityAnswerSchema }), async (req, res) => {
+  const { opportunityId, key, answer } = req.valid.body;
+  const opp = await getVisibleOpportunity(req.user, opportunityId);
+  const rule = (opp.eligibilityRules ?? []).find((r) => r.key === key);
+  if (!rule || rule.kind !== 'self_declared') throw badRequest('Only criteria you confirm yourself can be answered.', [{ field: 'key', message: 'Not a self-declared criterion of this listing' }]);
+  const filter = { userId: req.user._id, opportunityId: opp._id, key };
+  if (answer === null) await EligibilityAnswer.deleteOne(filter);
+  else await EligibilityAnswer.updateOne(filter, { $set: { answer } }, { upsert: true });
+  send(res, { opportunityId, key, answer });
+});
+
+/** Forgets the student's answers for one listing, or all of them. */
+eligibilityRouter.delete('/answers', validate({ query: eligibilityAnswersQuery }), async (req, res) => {
+  const r = await EligibilityAnswer.deleteMany({ userId: req.user._id, ...(req.valid.query.opportunityId ? { opportunityId: req.valid.query.opportunityId } : {}) });
+  send(res, { cleared: r.deletedCount });
 });

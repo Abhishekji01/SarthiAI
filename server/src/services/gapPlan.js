@@ -6,6 +6,7 @@ import { scoreOpportunity, studentSkillEvidence } from '../matching/engine.js';
 import { canonical, compareSkills, conceptLabel, relatedness } from '../matching/taxonomy.js';
 import { visibilityFilter } from './opportunities.js';
 import { calendarDaysUntil } from '../utils/dates.js';
+import { answersFor } from '../models/EligibilityAnswer.js';
 
 /**
  * Gap-to-plan: turns near-misses into a dated plan.
@@ -58,6 +59,7 @@ export async function buildGapPlan(user, { now = new Date(), horizonDays = 90 } 
   const p = user.profile ?? {};
   const docs = await Opportunity.find({ ...visibilityFilter(user), verificationStatus: 'verified' }).limit(800).lean();
   const evidence = studentSkillEvidence(p);
+  const answers = await answersFor(user._id);
 
   const skills = new Map(); // canonical id -> aggregate
   const quickWins = new Map(); // profile field -> { label, field, count, examples }
@@ -67,7 +69,7 @@ export async function buildGapPlan(user, { now = new Date(), horizonDays = 90 } 
   for (const o of docs) {
     const availability = computeAvailability(o, now);
     if (availability === 'closed') { counts.closed += 1; continue; }
-    const elig = checkEligibility(o, p, { now });
+    const elig = checkEligibility(o, p, { now, declarations: answers.get(String(o._id)) ?? {} });
     const match = scoreOpportunity(o, p, { now, eligibility: elig });
     counts.considered += 1;
     if (match.audienceRestricted) { counts.restricted += 1; continue; }

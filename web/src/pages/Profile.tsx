@@ -107,8 +107,10 @@ export function ProfilePage() {
           <li>Sarthi (AI) sees your first name, education, skills, interests, goals and projects only when you use an AI feature.</li>
           <li>College admins see only aggregate counts (hidden below 3), never individual students.</li>
           <li>Opening an official link never changes your application status.</li>
-          <li>Deleting your account permanently removes your profile, saved items, applications, roadmap and drafts.</li>
+          <li>Your Yes/No answers in “What am I missing?” are saved per listing so checks and rankings remember them. You can clear them below or on each listing.</li>
+          <li>Deleting your account permanently removes your profile, saved items, applications, roadmap, drafts and saved answers.</li>
         </ul>
+        <button type="button" className="btn block ghost" onClick={async () => { try { const r = await api.clearAnswers(); toast(r.cleared ? `Cleared ${r.cleared} saved answer${r.cleared === 1 ? '' : 's'}` : 'No saved answers'); } catch (e) { toast((e as Error).message); } }}>Clear all saved eligibility answers</button>
       </Sheet>
       {serverOverrideAllowed && <DevSheet open={devOpen} onClose={() => setDevOpen(false)} />}
       <DeleteSheet open={deleteOpen} onClose={() => setDeleteOpen(false)} />
