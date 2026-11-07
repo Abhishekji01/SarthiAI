@@ -241,8 +241,11 @@ describe('API: more results and grounded chat', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.reply).toMatch(/Applied ML Internship/);
     expect(res.body.data.model).toBe('sarthi-quick');
+    // "This month" questions list everything closing in the window (H5), not just the top matches.
     const apply = await request(app).post('/api/ai/quick').set(auth(s.token)).send({ message: 'What should I apply to this month?' });
-    expect(apply.body.data.toolsUsed).toEqual(['quick:recommend']);
+    expect(apply.body.data.toolsUsed).toEqual(['quick:window']);
+    const open = await request(app).post('/api/ai/quick').set(auth(s.token)).send({ message: 'What should I apply to?' });
+    expect(open.body.data.toolsUsed).toEqual(['quick:recommend']);
   });
 
   it('asks the model to correct an invented deadline, and reports what it could not verify', async () => {

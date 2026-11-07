@@ -77,8 +77,9 @@ export async function searchOpportunities(user, q, now = new Date()) {
     delete filter.$or;
   }
   // Free text is ranked in memory (synonyms, phrases, typos), not regex-filtered in Mongo.
-  if (q.deadlineWithinDays) {
-    filter.deadline = { $gte: now, $lte: new Date(now.getTime() + q.deadlineWithinDays * 86400000) };
+  if (q.deadlineWithinDays || q.deadlineBefore) {
+    const end = q.deadlineBefore ?? new Date(now.getTime() + q.deadlineWithinDays * 86400000);
+    filter.deadline = { $gte: now, $lte: end };
   }
   if (and.length) filter.$and = and;
 
@@ -132,6 +133,14 @@ export async function searchOpportunities(user, q, now = new Date()) {
     return row;
   });
 
+  // Sarthi's "what can I apply to" lists leave out listings a required criterion rules out (and say how many).
+  let excludedLikelyIneligible = 0;
+  if (q.excludeLikelyIneligible) {
+    const before = rows.length;
+    rows = rows.filter((r) => r.match.eligibilityOverall !== 'likely_ineligible');
+    excludedLikelyIneligible = before - rows.length;
+  }
+
   const places = userPlaces(user);
   for (const r of rows) {
     r.proximity = proximity(r.opportunity, places);
@@ -152,7 +161,7 @@ export async function searchOpportunities(user, q, now = new Date()) {
 
   const { items, meta } = paginate(rows, q.page, q.limit);
   const nearby = q.sort === 'nearby' ? { places, count: rows.filter((r) => r.item.nearby).length } : undefined;
-  return { items: items.map((r) => r.item), meta: { ...meta, ...(textMeta ? { search: textMeta } : {}), ...(nearby ? { nearby } : {}) } };
+  return { items: items.map((r) => r.item), meta: { ...meta, ...(textMeta ? { search: textMeta } : {}), ...(nearby ? { nearby } : {}), ...(q.excludeLikelyIneligible ? { excludedLikelyIneligible } : {}) } };
 }
 
 /**

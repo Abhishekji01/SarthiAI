@@ -117,7 +117,8 @@ function AssistantBubble({ m }: { m: Msg }) {
       {r?.proposedActions.map((a) => <ActionCard key={a.id} a={a} />)}
       {r && r.citations.length > 0 && (
         <div className="chips" style={{ marginTop: 10 }}>
-          {r.citations.map((c) => <Link key={c.opportunityId} to={`/opportunity/${c.opportunityId}`} className="tag accent">{c.title.length > 40 ? `${c.title.slice(0, 38)}…` : c.title}</Link>)}
+          {r.citations.slice(0, 8).map((c) => <Link key={c.opportunityId} to={`/opportunity/${c.opportunityId}`} className="tag accent">{c.title.length > 40 ? `${c.title.slice(0, 38)}…` : c.title}</Link>)}
+          {r.citations.length > 8 && <span className="tag">+{r.citations.length - 8} more in the answer</span>}
         </div>
       )}
       {r && (
