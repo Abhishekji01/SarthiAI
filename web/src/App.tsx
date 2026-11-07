@@ -12,6 +12,7 @@ import { Home } from './pages/Home';
 import { Discover } from './pages/Discover';
 import { OpportunityDetail } from './pages/OpportunityDetail';
 import { ResetPassword } from './pages/ResetPassword';
+import { NotFound } from './pages/NotFound';
 
 // Less-used screens load on demand to keep first paint fast on phones.
 const Onboarding = lazy(() => import('./pages/Onboarding').then((m) => ({ default: m.Onboarding })));
@@ -49,6 +50,9 @@ function useNativeChrome() {
   }, [location.pathname, navigate]);
 }
 
+/** Screens that need an account (signed-out visitors are sent to sign in). */
+const PRIVATE_PATHS = ['/', '/onboarding', '/discover', '/opportunity/:id', '/sarthi', '/roadmap', '/plan', '/applications', '/saved', '/drafts', '/drafts/:id', '/profile', '/profile/edit', '/admin/*'];
+
 function Splash() {
   return <div className="auth"><div style={{ textAlign: 'center' }}><LogoMark size={64} /><p className="faint" style={{ marginTop: 12 }}>Loading…</p></div></div>;
 }
@@ -62,7 +66,9 @@ export function App() {
       <Routes>
         <Route path="/welcome" element={<Welcome notice={state.notice} networkError={state.networkError} />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="*" element={<Navigate to="/welcome" replace />} />
+        {/* App screens need an account: send people to sign in. Anything else is a 404. */}
+        {PRIVATE_PATHS.map((p) => <Route key={p} path={p} element={<Navigate to="/welcome" replace />} />)}
+        <Route path="*" element={<NotFound signedIn={false} />} />
       </Routes>
     );
   }
@@ -86,9 +92,9 @@ export function App() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="profile/edit" element={<EditProfile />} />
           <Route path="admin/*" element={<Admin />} />
+          <Route path="*" element={<NotFound signedIn />} />
         </Route>
         <Route path="/welcome" element={<Navigate to="/" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );

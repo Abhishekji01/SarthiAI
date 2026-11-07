@@ -18,6 +18,7 @@ import draftRoutes from './routes/drafts.js';
 import { campusRouter, collegesRouter, meRouter, resourcesRouter } from './routes/campus.js';
 import adminRoutes from './routes/admin.js';
 import { getAIProvider } from './ai/provider.js';
+import { isAppRoute, looksLikeFile, robotsTxt, sitemapXml } from './web/seo.js';
 
 export function createApp() {
   const app = express();
@@ -77,7 +78,14 @@ export function createApp() {
       if (/[\\/]assets[\\/]/.test(file)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       if (/sw\.js$/.test(file)) res.setHeader('Cache-Control', 'no-cache');
     } }));
-    app.get(/^\/(?!api\/|health$|ready$).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
+    app.get('/robots.txt', (_req, res) => res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(robotsTxt()));
+    app.get('/sitemap.xml', async (_req, res) => res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(sitemapXml()));
+    app.get(/^\/(?!api\/|health$|ready$).*/, (req, res) => {
+      // Missing files (e.g. /logo.png, /assets/old.js) are a real 404, never the app's HTML.
+      if (looksLikeFile(req.path)) return res.status(404).type('text/plain').send('Not found');
+      // Unknown app routes still get the app (it shows its Not found page) but with a 404 status.
+      res.status(isAppRoute(req.path) ? 200 : 404).sendFile(path.join(webDist, 'index.html'));
+    });
   }
 
   app.use(notFoundHandler);
