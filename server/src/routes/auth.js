@@ -14,6 +14,7 @@ import { send } from '../utils/http.js';
 import { badRequest, conflict, unauthorized } from '../utils/errors.js';
 import { completePasswordReset, findUserByResetToken, requestPasswordReset } from '../auth/passwordReset.js';
 import { logger } from '../utils/logger.js';
+import { mailConfigured } from '../mail/mailer.js';
 import { beforeLogin, recordFailure, recordSuccess } from '../auth/loginThrottle.js';
 
 const router = Router();
@@ -81,7 +82,7 @@ router.post('/logout', requireAuth, async (req, res) => {
 });
 
 /** What the sign-in screen can offer (feature flags). */
-router.get('/config', (_req, res) => send(res, { googleSignIn: googleEnabled() }));
+router.get('/config', (_req, res) => send(res, { googleSignIn: googleEnabled(), emailDelivery: mailConfigured() }));
 
 const safeNext = (p) => (typeof p === 'string' && p.startsWith('/') && !p.startsWith('//') && !p.startsWith('/\\') && p.length < 300 ? p : null);
 const oauthCookie = { httpOnly: true, sameSite: 'lax', path: '/api/auth/google', maxAge: 10 * 60 * 1000 };

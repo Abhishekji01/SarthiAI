@@ -62,6 +62,8 @@ export interface Opportunity {
   status: 'draft' | 'published' | 'archived';
   updatedAt: string;
   match?: Match;
+  watchingDates?: boolean;
+  createdAt?: string;
   isSaved?: boolean;
   tracked?: { id: string; status: ApplicationStatus; archived: boolean } | null;
   tier?: 'recommended' | 'possible';
@@ -120,7 +122,7 @@ export interface User {
   role: 'student' | 'college_admin' | 'platform_admin';
   adminCollegeIds: string[];
   profile: Profile;
-  notificationPrefs: { deadlineReminders: boolean; reminderDaysBefore: number; campusAnnouncements: boolean };
+  notificationPrefs: { deadlineReminders: boolean; reminderDaysBefore: number; campusAnnouncements: boolean; emailDeadlines?: boolean; emailDigest?: boolean };
   onboardingCompletedAt: string | null;
   emailVerified?: boolean;
   createdAt: string;

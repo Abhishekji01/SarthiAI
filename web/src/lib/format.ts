@@ -112,3 +112,17 @@ export function tidyEnding(text: string, limitHint = 3000) {
   const space = t.lastIndexOf(' ');
   return `${(space > t.length - 60 ? t.slice(0, space) : t).replace(/[\s,;:–—-]+$/, '')}…`;
 }
+
+const ymd = (d: string | Date) => new Date(new Date(d).getTime() + IST).toISOString().slice(0, 10).replace(/-/g, '');
+
+/** "Add to Google Calendar": an all-day event on the deadline date (India time). Same as the server's .ics. */
+export function googleCalendarUrl(o: { title: string; organization: string; sourceUrl: string; deadline: string | null }, pageUrl?: string) {
+  if (!o.deadline) return null;
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `Deadline: ${o.title}`,
+    dates: `${ymd(o.deadline)}/${ymd(new Date(new Date(o.deadline).getTime() + DAY))}`,
+    details: `${o.organization}\nOfficial source: ${o.sourceUrl}${pageUrl ? `\nOn SarthiAI: ${pageUrl}` : ''}`,
+  });
+  return `https://calendar.google.com/calendar/render?${params}`;
+}

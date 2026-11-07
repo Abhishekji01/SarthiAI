@@ -40,6 +40,10 @@ const schema = z.object({
   FEATURE_GOOGLE_SIGNIN: z.enum(['true', 'false']).default('false'),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  // Notification emails: the hourly in-process runner (defaults on in production when email is configured),
+  // and/or a secret for POST /api/internal/jobs (for a cron such as GitHub Actions when the host sleeps).
+  ENABLE_NOTIFICATION_JOBS: z.enum(['true', 'false']).optional(),
+  JOBS_SECRET: z.string().min(24, 'JOBS_SECRET must be at least 24 characters').optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 });

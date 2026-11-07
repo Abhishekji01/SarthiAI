@@ -15,6 +15,7 @@ import { User } from '../models/User.js';
 import { IngestRun } from '../models/IngestRun.js';
 import { send } from '../utils/http.js';
 import { badRequest, forbidden, notFound } from '../utils/errors.js';
+import { runDateWatches } from '../notify/jobs.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('college_admin', 'platform_admin'));
@@ -100,6 +101,8 @@ router.patch('/opportunities/:id', validate({ params: idParams, body: adminOppor
   }
   if (b.title || b.sourceUrl) opp.dedupeKey = buildDedupeKey({ sourceUrl: opp.sourceUrl, title: opp.title, collegeId: opp.collegeId });
   await opp.save();
+  // A newly published deadline notifies students who asked to hear about it.
+  if (b.deadline) runDateWatches().catch(() => {});
   send(res, serializeOpportunity(opp));
 });
 

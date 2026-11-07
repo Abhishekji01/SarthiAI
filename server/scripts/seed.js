@@ -30,6 +30,8 @@ export async function seedAll({ dryRun = false } = {}) {
   const snapshot = await readFile(new URL('../data/scraped/records.json', import.meta.url), 'utf8').then(JSON.parse).catch(() => null);
   if (snapshot?.records?.length && !dryRun) {
     const merged = await ingestScrapedRecords(snapshot.records);
+    const { runDateWatches } = await import('../src/notify/jobs.js');
+    report.dateAlerts = await runDateWatches().catch(() => null);
     report.scraped = { generatedAt: snapshot.generatedAt, inserted: merged.inserted, updated: merged.updated, datesRefreshed: merged.datesRefreshed, rejected: merged.rejected.length };
   }
   return report;

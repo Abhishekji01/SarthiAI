@@ -9,6 +9,7 @@ import { formatDate, fromDateInput, OVERALL_LABEL, STATUS_LABEL, toDateInput, TY
 import { APPLICATION_STATUSES, type ApplicationStatus, type EligibilityResult, type Opportunity } from '../lib/types';
 import { DeadlineTag, FitMeter, VerificationTag } from '../components/OpportunityRow';
 import { SaveButton } from '../components/SaveButton';
+import { DeadlineActions } from '../components/DeadlineActions';
 import { OfficialDescription, opportunityFacts, ShareButton, SourceSection } from '../components/OpportunityFacts';
 import { ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
 import { IconCheck, IconDoc, IconExternal, IconChat, IconX } from '../components/icons';
@@ -63,6 +64,7 @@ export function OpportunityDetail() {
           : <button className="btn secondary" onClick={() => setTrackOpen(true)}>Track application</button>}
       </div>
       <p className="tiny faint" style={{ marginTop: -12 }}>Opening the official site never marks you as applied — you update your tracker yourself.</p>
+      <DeadlineActions o={o} onChange={(patch) => setData({ ...o, ...patch })} />
 
       {o.summary && (
         <section className="section">

@@ -101,6 +101,8 @@ export const profilePatchSchema = z.object({
     deadlineReminders: z.boolean().optional(),
     reminderDaysBefore: z.number().int().min(0).max(30).optional(),
     campusAnnouncements: z.boolean().optional(),
+    emailDeadlines: z.boolean().optional(),
+    emailDigest: z.boolean().optional(),
   }).optional(),
   completeOnboarding: z.boolean().optional(),
 });
@@ -314,8 +316,10 @@ const opportunityFields = {
 };
 
 export const adminOpportunityCreateSchema = z.object(opportunityFields);
+// A PATCH changes only the fields it sends: defaults (status 'draft', sourceType, empty lists…) must not
+// be filled in, or every edit would silently unpublish the listing and wipe its criteria.
 export const adminOpportunityPatchSchema = z.object(
-  Object.fromEntries(Object.entries(opportunityFields).map(([k, v]) => [k, v.optional()])),
+  Object.fromEntries(Object.entries(opportunityFields).map(([k, v]) => [k, (v instanceof z.ZodDefault ? v.removeDefault() : v).optional()])),
 );
 
 export const adminVerifySchema = z.object({

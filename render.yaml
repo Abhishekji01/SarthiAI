@@ -37,3 +37,6 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      # Reminder emails: lets the hourly GitHub Action wake the server (free plan sleeps).
+      - key: JOBS_SECRET
+        generateValue: true

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import { connectTestDb, disconnectTestDb, registerStudent, auth, createCollege, makeAdmin, setProfile } from './helpers.js';
+import { connectTestDb, disconnectTestDb, registerStudent, auth, createCollege, makeAdmin, setProfile, createOpportunity } from './helpers.js';
 
 let app;
 let alpha;
@@ -116,5 +116,17 @@ describe('admin metrics', () => {
     const row = res.body.data.listings.find((l) => l.opportunityId === own.id);
     expect(row.saves).toEqual({ count: null, suppressed: true });
     expect(JSON.stringify(res.body)).not.toMatch(/email/i);
+  });
+});
+
+describe('admin edits (regression)', () => {
+  it('a PATCH changes only the fields sent: status, source type and criteria are kept', async () => {
+    const { Opportunity } = await import('../src/models/Opportunity.js');
+    const admin = await makeAdmin(app, { platform: true });
+    const o = await createOpportunity({ title: 'Patch Me', status: 'published', sourceType: 'government_portal', declaredStatus: 'open', eligibleDegrees: ['B.Tech'], tags: ['x'] });
+    const r = await request(app).patch(`/api/admin/opportunities/${o._id}`).set(auth(admin.token)).send({ deadlineNote: 'Extended by a week' });
+    expect(r.status).toBe(200);
+    const after = await Opportunity.findById(o._id).lean();
+    expect(after).toMatchObject({ status: 'published', sourceType: 'government_portal', declaredStatus: 'open', eligibleDegrees: ['B.Tech'], tags: ['x'], deadlineNote: 'Extended by a week' });
   });
 });

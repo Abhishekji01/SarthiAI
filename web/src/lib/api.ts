@@ -133,7 +133,7 @@ export const api = {
   upgradeSession: () => post<{ session: 'cookie' }>('/auth/session'),
   logout: () => post<{ signedOut: boolean }>('/auth/logout'),
   logoutAll: () => post<{ signedOut: boolean }>('/auth/logout-all'),
-  authConfig: () => get<{ googleSignIn: boolean }>('/auth/config'),
+  authConfig: () => get<{ googleSignIn: boolean; emailDelivery: boolean }>('/auth/config'),
   verifyEmail: (token: string) => post<{ verified: boolean; email: string }>('/auth/verify-email', { token }),
   resendVerification: () => post<{ sent: boolean; alreadyVerified: boolean }>('/auth/verify-email/resend'),
   forgotPassword: (email: string) => post<{ sent: boolean; message: string }>('/auth/forgot-password', { email }),
@@ -151,6 +151,18 @@ export const api = {
   /** Public facts only (no sign-in): for shared links. */
   publicOpportunity: (id: string) => get<Opportunity>(`/public/opportunities/${id}`),
   save: (id: string) => post(`/opportunities/${id}/save`),
+  watchDates: (id: string) => post<{ watchingDates: boolean; isSaved: boolean }>(`/opportunities/${id}/watch`),
+  unwatchDates: (id: string) => del<{ watchingDates: boolean }>(`/opportunities/${id}/watch`),
+  /** The deadline as an .ics calendar file (text). */
+  calendarIcs: async (id: string) => {
+    const res = await fetch(`${baseUrl}/api/opportunities/${id}/calendar.ics`, {
+      headers: { ...(usesCookieSession() ? { 'X-Sarthi-Client': 'web' } : {}), ...(token && shouldAttachToken(baseUrl, DEFAULT_SERVER_URL) ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: usesCookieSession() ? 'same-origin' : 'omit',
+    });
+    if (!res.ok) throw new ApiError(res.status, `HTTP_${res.status}`, 'Could not create the calendar file.');
+    return res.text();
+  },
+  publicCalendarUrl: (id: string) => `${baseUrl || window.location.origin}/api/public/opportunities/${id}/calendar.ics`,
   unsave: (id: string) => del(`/opportunities/${id}/save`),
   saved: () => get<Opportunity[]>('/saved'),
   matches: (q: { limit?: number; tier?: 'recommended' | 'all' } = {}) => getWithMeta<Opportunity[]>('/matches', q),

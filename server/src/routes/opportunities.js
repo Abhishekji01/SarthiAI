@@ -4,6 +4,9 @@ import { validate } from '../middleware/validate.js';
 import { opportunityQuerySchema, idParams, eligibilityCheckSchema, matchesQuerySchema, eligibilityAnswerSchema, eligibilityAnswersQuery } from '../validators/schemas.js';
 import { EligibilityAnswer, answersFor } from '../models/EligibilityAnswer.js';
 import { badRequest } from '../utils/errors.js';
+import { DateWatch } from '../models/Notification.js';
+import { deadlineIcs } from '../notify/ics.js';
+import { appUrl } from '../mail/mailer.js';
 import { inPersonPlaces, openSummary, searchOpportunities, getVisibleOpportunity, recommendedMatches, userStateFor, presentWithMatch, visibilityFilter } from '../services/opportunities.js';
 import { checkEligibility } from '../eligibility/engine.js';
 import { SavedOpportunity } from '../models/SavedOpportunity.js';
@@ -26,6 +29,28 @@ opportunitiesRouter.get('/:id', validate({ params: idParams }), async (req, res)
   const opp = await getVisibleOpportunity(req.user, req.valid.params.id);
   const state = await userStateFor(req.user, [opp._id]);
   send(res, presentWithMatch(opp, req.user, state).item);
+});
+
+/** Calendar file for the deadline (all-day, reminders 3 days and 1 day before). */
+opportunitiesRouter.get('/:id/calendar.ics', validate({ params: idParams }), async (req, res) => {
+  const opp = await getVisibleOpportunity(req.user, req.valid.params.id);
+  const ics = deadlineIcs(opp, { url: `${appUrl()}/opportunity/${opp._id}` });
+  if (!ics) throw badRequest('This listing has no published deadline yet.');
+  res.type('text/calendar').set('Content-Disposition', `attachment; filename="sarthiai-deadline-${opp._id}.ics"`).send(ics);
+});
+
+/** "Notify me when dates are announced" (listings without a deadline). Also saves the listing. */
+opportunitiesRouter.post('/:id/watch', validate({ params: idParams }), async (req, res) => {
+  const opp = await getVisibleOpportunity(req.user, req.valid.params.id);
+  if (opp.deadline) throw badRequest('This listing already has a deadline. Save it to get reminders.');
+  await DateWatch.updateOne({ userId: req.user._id, opportunityId: opp._id }, { $set: { notifiedAt: null } }, { upsert: true });
+  await SavedOpportunity.updateOne({ userId: req.user._id, opportunityId: opp._id }, { $setOnInsert: { userId: req.user._id, opportunityId: opp._id } }, { upsert: true });
+  send(res, { opportunityId: String(opp._id), watchingDates: true, isSaved: true });
+});
+
+opportunitiesRouter.delete('/:id/watch', validate({ params: idParams }), async (req, res) => {
+  await DateWatch.deleteOne({ userId: req.user._id, opportunityId: req.valid.params.id });
+  send(res, { opportunityId: req.valid.params.id, watchingDates: false });
 });
 
 opportunitiesRouter.post('/:id/save', validate({ params: idParams }), async (req, res) => {

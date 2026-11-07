@@ -3,6 +3,7 @@ import { matchesPlace, placeLabel, proximity, PROXIMITY, userPlaces } from '../m
 import { SavedOpportunity } from '../models/SavedOpportunity.js';
 import { Application } from '../models/Application.js';
 import { answersFor } from '../models/EligibilityAnswer.js';
+import { DateWatch } from '../models/Notification.js';
 import { checkEligibility, degreeMatches } from '../eligibility/engine.js';
 import { scoreOpportunity, rankMatches } from '../matching/engine.js';
 import { rankByQuery } from '../matching/search.js';
@@ -31,13 +32,15 @@ export async function getVisibleOpportunity(user, id) {
 }
 
 export async function userStateFor(user, opportunityIds) {
-  const [saved, apps, answers] = await Promise.all([
+  const [saved, apps, answers, watches] = await Promise.all([
     SavedOpportunity.find({ userId: user._id, opportunityId: { $in: opportunityIds } }).select('opportunityId').lean(),
     Application.find({ userId: user._id, opportunityId: { $in: opportunityIds } }).select('opportunityId status archived').lean(),
     answersFor(user._id, opportunityIds),
+    DateWatch.find({ userId: user._id, opportunityId: { $in: opportunityIds }, notifiedAt: null }).select('opportunityId').lean(),
   ]);
   return {
     answers,
+    watching: new Set(watches.map((w) => String(w.opportunityId))),
     saved: new Set(saved.map((s) => String(s.opportunityId))),
     apps: new Map(apps.map((a) => [String(a.opportunityId), { id: String(a._id), status: a.status, archived: a.archived }])),
   };
@@ -65,6 +68,7 @@ export function presentWithMatch(opp, user, state, now = new Date()) {
         factors: match.factors,
       },
       isSaved: state.saved.has(id),
+      watchingDates: state.watching?.has(id) ?? false,
       tracked: state.apps.get(id) ?? null,
     }),
   };

@@ -24,6 +24,8 @@ export function ProfilePage() {
   const [devOpen, setDevOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   useEffect(() => { reminderPermission().then(setPerm); }, []);
+  const [emailDelivery, setEmailDelivery] = useState<boolean | null>(null);
+  useEffect(() => { api.authConfig().then((c) => setEmailDelivery(c.emailDelivery)).catch(() => {}); }, []);
 
   const completeness = [p.degree, p.branch, p.currentYear, p.skills?.length, p.interests?.length, p.careerGoal, p.collegeId].filter(Boolean).length;
   const isAdmin = user.role !== 'student';
@@ -89,7 +91,15 @@ export function ProfilePage() {
               {perm === 'prompt' && <button className="btn small" onClick={async () => { const r = await requestReminderPermission(); setPerm(r); if (r === 'granted') syncReminders(user); }}>Allow</button>}
             </div>
           )}
-          {!isNative && <p className="tiny faint" style={{ marginTop: 8 }}>In a browser, reminders show while SarthiAI is open. Install the Android app for reminders when it’s closed.</p>}
+          {!isNative && <p className="tiny faint" style={{ marginTop: 8 }}>In a browser, notifications show while SarthiAI is open. For reminders when it’s closed, use email below, add deadlines to your calendar from each listing, or install the Android app.</p>}
+          <hr style={{ border: 0, borderTop: '1px solid var(--rule)', margin: '12px 0' }} />
+          <p className="faint" style={{ margin: '0 0 4px' }}>Email</p>
+          <label className="check"><input type="checkbox" checked={user.notificationPrefs.emailDeadlines !== false} onChange={(e) => setPrefs({ emailDeadlines: e.target.checked })} disabled={!user.notificationPrefs.deadlineReminders} /> Deadline emails for saved and tracked listings</label>
+          <label className="check"><input type="checkbox" checked={user.notificationPrefs.emailDigest !== false} onChange={(e) => setPrefs({ emailDigest: e.target.checked })} /> Weekly summary (Mondays): upcoming dates and new matches</label>
+          <p className="tiny faint" style={{ marginTop: 4 }}>
+            {user.emailVerified === false ? `Emails start once you confirm ${user.email} (see the banner at the top).` : `Sent to ${user.email}. Every email has a one-click unsubscribe link.`}
+            {emailDelivery === false && ' Email delivery isn’t set up on this server yet.'}
+          </p>
         </div>
       </section>
 

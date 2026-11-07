@@ -7,6 +7,7 @@ import { ingestScrapedRecords, retireMissing } from './importer.js';
 import { checkSources } from './sourceChecker.js';
 import { IngestRun } from '../models/IngestRun.js';
 import { logger } from '../utils/logger.js';
+import { runDateWatches } from '../notify/jobs.js';
 
 const exec = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -37,6 +38,8 @@ export async function runDailyRefresh({ trigger = 'manual', scraper = runScraper
     const payload = await scraper();
     run.sources = payload.sources;
     const merge = await ingestScrapedRecords(payload.records, { now: startedAt });
+    // Listings that just got their dates: tell the students who asked.
+    await runDateWatches().catch(() => {});
     const okSources = payload.sources.filter((s) => s.status === 'ok').map((s) => s.id);
     const { retired, skippedSources } = await retireMissing({ okSources, seen: merge.seen });
     Object.assign(run, { inserted: merge.inserted, updated: merge.updated, datesRefreshed: merge.datesRefreshed, retired, rejected: merge.rejected.map((r) => ({ title: r.title, issues: r.issues })) });

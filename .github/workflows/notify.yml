@@ -1,0 +1,22 @@
+name: Reminder emails
+
+# Wakes the server every hour and runs the reminder jobs (deadline emails, weekly digest,
+# "dates announced" alerts). Needed on hosts that sleep between visits (Render free plan).
+# Set repository secrets SARTHI_APP_URL (e.g. https://sarthiai.onrender.com) and
+# SARTHI_JOBS_SECRET (the same value as JOBS_SECRET on the server). Without them this does nothing.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run reminder jobs
+        env:
+          APP_URL: ${{ secrets.SARTHI_APP_URL }}
+          JOBS_SECRET: ${{ secrets.SARTHI_JOBS_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$JOBS_SECRET" ]; then echo "Secrets not set; skipping."; exit 0; fi
+          curl -fsS --retry 3 --retry-delay 20 --max-time 120 -X POST "$APP_URL/api/internal/jobs" -H "X-Jobs-Secret: $JOBS_SECRET"

@@ -99,6 +99,9 @@ const userSchema = new Schema(
       deadlineReminders: { type: Boolean, default: true },
       reminderDaysBefore: { type: Number, min: 0, max: 30, default: 3 },
       campusAnnouncements: { type: Boolean, default: true },
+      // Emails (sent only once the address is verified).
+      emailDeadlines: { type: Boolean, default: true },
+      emailDigest: { type: Boolean, default: true },
     },
     onboardingCompletedAt: Date,
   },

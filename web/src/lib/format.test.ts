@@ -31,3 +31,15 @@ describe('L5: display helpers', () => {
     expect(tidyEnding('A complete sentence.')).toBe('A complete sentence.');
   });
 });
+
+import { googleCalendarUrl } from './format';
+
+describe('F5: Add to Google Calendar link', () => {
+  it('is an all-day event on the India date, matching the server .ics', () => {
+    const u = new URL(googleCalendarUrl({ title: 'Pragati', organization: 'AICTE', sourceUrl: 'https://aicte.gov.in', deadline: '2026-11-30T18:29:00Z' })!);
+    expect(u.origin).toBe('https://calendar.google.com');
+    expect(u.searchParams.get('dates')).toBe('20261130/20261201');
+    expect(u.searchParams.get('text')).toBe('Deadline: Pragati');
+    expect(googleCalendarUrl({ title: 'x', organization: 'y', sourceUrl: 'z', deadline: null })).toBeNull();
+  });
+});

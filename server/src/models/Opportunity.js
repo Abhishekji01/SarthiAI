@@ -206,6 +206,7 @@ export function serializeOpportunity(o, extra = {}) {
     tags: o.tags ?? [],
     collegeId: o.collegeId ? String(o.collegeId) : null,
     status: o.status,
+    createdAt: o.createdAt,
     updatedAt: o.updatedAt,
     ...extra,
   };
