@@ -10,6 +10,7 @@ const OPPORTUNITY_TYPES: OpportunityType[] = ['scholarship', 'internship', 'rese
 import { OpportunityRow } from '../components/OpportunityRow';
 import { Empty, ErrorState, Field, Sheet, Skeleton, TopBar } from '../components/ui';
 import { IconCompass, IconFilter, IconPin, IconSearch } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 /** Plural chip labels: "Scholarships", "Internships", "Research", "Hackathons"… */
 const CHIP_LABEL: Record<string, string> = {
@@ -20,6 +21,7 @@ const CHIP_LABEL: Record<string, string> = {
 const SUGGESTED = ['scholarship', 'hackathon', 'machine learning', 'research internship', 'cybersecurity', 'remote'];
 
 export function Discover() {
+  usePageTitle('Find');
   const [params, setParams] = useSearchParams();
   const user = useUser();
   const places = placesOf(user);

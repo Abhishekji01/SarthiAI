@@ -5,6 +5,7 @@ import { Field, LogoMark, Sheet } from '../components/ui';
 import { NetworkErrorActions, ServerSettings } from '../components/ServerSettings';
 import { PasswordHint } from '../components/PasswordHint';
 import { IconCheck, IconSettings } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 const POINTS = [
   'Verified scholarships, internships & fellowships — every listing cites its official source',
@@ -22,6 +23,7 @@ export function Welcome({ notice, networkError }: { notice?: string; networkErro
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [serverOpen, setServerOpen] = useState(false);
+  usePageTitle(mode === 'signin' ? 'Sign in' : mode === 'register' ? 'Create account' : mode === 'forgot' || mode === 'forgotSent' ? 'Reset password' : null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

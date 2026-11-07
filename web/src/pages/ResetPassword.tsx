@@ -4,9 +4,11 @@ import { api, ApiError } from '../lib/api';
 import { useSession } from '../lib/session';
 import { Field, LogoMark } from '../components/ui';
 import { PasswordHint } from '../components/PasswordHint';
+import { usePageTitle } from '../lib/usePageTitle';
 
 /** Opened from the emailed link: /reset-password?token=… */
 export function ResetPassword() {
+  usePageTitle('Reset password');
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
   const { adoptSession } = useSession();

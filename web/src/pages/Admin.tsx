@@ -7,11 +7,13 @@ import { formatDate, fromDateInput, TYPE_LABEL } from '../lib/format';
 import { OPPORTUNITY_TYPES, type Announcement, type College, type Opportunity } from '../lib/types';
 import { Empty, ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
 import { IconPlus } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 const TABS = ['Announcements', 'Listings', 'Metrics'] as const;
 const CATEGORIES = ['general', 'placement', 'scholarship', 'internship', 'event', 'academic'];
 
 export function Admin() {
+  usePageTitle('Campus admin');
   const user = useUser();
   const [tab, setTab] = useState<(typeof TABS)[number]>('Announcements');
   const colleges = useAsync(() => (user.role === 'student' ? Promise.resolve([] as College[]) : api.admin.colleges()), []);

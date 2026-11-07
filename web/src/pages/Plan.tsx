@@ -7,12 +7,14 @@ import { formatDate, relativeDays, TYPE_LABEL } from '../lib/format';
 import type { PlanOpportunity, PlanStep } from '../lib/types';
 import { Empty, ErrorState, Skeleton, TopBar, useToast } from '../components/ui';
 import { IconCheck, IconExternal, IconRoute, IconUser } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 /**
  * Gap-to-plan: what stands between the student and open opportunities, as a dated 90-day plan.
  * Everything here comes from the server's deterministic analysis — no AI, nothing invented.
  */
 export function Plan() {
+  usePageTitle('Your 90-day plan');
   const navigate = useNavigate();
   const toast = useToast();
   const { data: plan, error, loading, reload } = useAsync(() => api.plan(), []);

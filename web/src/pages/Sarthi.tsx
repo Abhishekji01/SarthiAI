@@ -7,6 +7,7 @@ import { syncReminders } from '../lib/reminders';
 import type { ChatReply, ProposedAction } from '../lib/types';
 import { RichText, TopBar, useToast } from '../components/ui';
 import { IconCheck, IconSend, IconChat } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 interface Msg { role: 'user' | 'assistant'; content: string; reply?: ChatReply; quick?: boolean }
 
@@ -22,6 +23,7 @@ const KEY = 'sarthi.chat';
 const loadHistory = (): Msg[] => { try { return JSON.parse(sessionStorage.getItem(KEY) ?? '[]'); } catch { return []; } };
 
 export function Sarthi() {
+  usePageTitle('Ask Sarthi');
   const [params] = useSearchParams();
   const about = params.get('about');
   const aboutTitle = params.get('title');

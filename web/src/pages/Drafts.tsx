@@ -7,8 +7,10 @@ import { formatDate, titleCase } from '../lib/format';
 import type { DraftKind } from '../lib/types';
 import { Empty, ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
 import { IconDoc, IconPlus, IconShare, IconChat, IconTrash } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 export function Drafts() {
+  usePageTitle('Drafts');
   const navigate = useNavigate();
   const { data, error, loading, reload } = useAsync(() => api.drafts(), []);
   const [newOpen, setNewOpen] = useState(false);
@@ -72,6 +74,7 @@ export function DraftEditor() {
   const navigate = useNavigate();
   const toast = useToast();
   const { data: d, error, loading, reload, setData } = useAsync(() => api.draft(id), [id]);
+  usePageTitle(d?.title || 'Draft');
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');

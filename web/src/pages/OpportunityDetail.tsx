@@ -11,6 +11,7 @@ import { DeadlineTag, FitMeter, VerificationTag } from '../components/Opportunit
 import { SaveButton } from '../components/SaveButton';
 import { ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
 import { IconCheck, IconDoc, IconExternal, IconChat, IconX } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 export function OpportunityDetail() {
   const { id = '' } = useParams();
@@ -19,6 +20,8 @@ export function OpportunityDetail() {
   const { data: o, error, loading, reload, setData } = useAsync(() => api.opportunity(id), [id]);
   const [trackOpen, setTrackOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
+
+  usePageTitle(o?.title ?? 'Opportunity');
 
   if (loading && !o) return <div className="page"><TopBar title="" back /><Skeleton count={4} /></div>;
   if (error || !o) return <div className="page"><TopBar title="Opportunity" back /><ErrorState error={error ?? new Error('Not found')} onRetry={reload} /></div>;

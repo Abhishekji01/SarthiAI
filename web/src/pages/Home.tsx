@@ -8,6 +8,7 @@ import type { NextMove, OpportunityType, TypeSummary } from '../lib/types';
 import { OpportunityRow } from '../components/OpportunityRow';
 import { Empty, ErrorState, Skeleton } from '../components/ui';
 import { IconArrowRight, IconBookmark, IconChat, IconDoc, IconMegaphone, IconRoute } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 function moveLink(m: NextMove) {
   switch (m.target.type) {
@@ -39,6 +40,7 @@ export function tileNote(t: TypeSummary | undefined) {
 }
 
 export function Home() {
+  usePageTitle('Home');
   const user = useUser();
   const moves = useAsync(() => api.nextMoves(), []);
   const deadlines = useAsync(() => api.deadlines(), []);

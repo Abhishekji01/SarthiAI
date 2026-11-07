@@ -5,6 +5,7 @@ import { useSession, useUser } from '../lib/session';
 import { CollegePicker, draftFrom, EducationFields, InterestFields, PreferenceFields, toPatch, type Draft } from '../components/ProfileForm';
 import { LogoMark } from '../components/ui';
 import { FIELD_STEP, fieldErrorsFromServer, firstErrorField, focusField, validateAll, validateStep, type FieldErrors } from '../lib/profileValidation';
+import { usePageTitle } from '../lib/usePageTitle';
 
 const STEPS = [
   { title: 'Where do you study?', sub: 'Campus notices and college-only opportunities depend on this.' },
@@ -14,6 +15,7 @@ const STEPS = [
 ];
 
 export function Onboarding() {
+  usePageTitle('Set up your profile');
   const user = useUser();
   const { setUser } = useSession();
   const navigate = useNavigate();

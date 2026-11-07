@@ -10,8 +10,10 @@ import { syncReminders } from '../lib/reminders';
 import { CollegePicker, draftFrom, EducationFields, InterestFields, PreferenceFields, ProjectFields, toPatch, type Draft } from '../components/ProfileForm';
 import { Field, Sheet, TopBar, useToast } from '../components/ui';
 import { IconBell, IconBookmark, IconDoc, IconMegaphone, IconSettings, IconShield, IconUser } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 export function ProfilePage() {
+  usePageTitle('Profile');
   const user = useUser();
   const { signOut, setUser } = useSession();
   const toast = useToast();
@@ -142,6 +144,7 @@ function DeleteSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
 const SECTIONS = ['Basics', 'Education', 'Skills & goals', 'Preferences', 'Projects & links'] as const;
 
 export function EditProfile() {
+  usePageTitle('Edit profile');
   const user = useUser();
   const { setUser } = useSession();
   const toast = useToast();

@@ -9,6 +9,7 @@ import { formatDate, fromDateInput, relativeDays, STATUS_LABEL, toDateInput } fr
 import { APPLICATION_STATUSES, type Application, type ApplicationStatus } from '../lib/types';
 import { Empty, ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
 import { IconBriefcase, IconExternal, IconPlus } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 const GROUPS: { title: string; statuses: ApplicationStatus[] }[] = [
   { title: 'Preparing', statuses: ['interested', 'preparing', 'ready_to_apply'] },
@@ -18,6 +19,7 @@ const GROUPS: { title: string; statuses: ApplicationStatus[] }[] = [
 const TONE: Partial<Record<ApplicationStatus, string>> = { ready_to_apply: 'amber', applied: 'accent', assessment: 'accent', interview: 'accent', offer: 'jade', rejected: 'muted', withdrawn: 'muted' };
 
 export function Applications() {
+  usePageTitle('Applied');
   const user = useUser();
   const toast = useToast();
   const [archived, setArchived] = useState(false);
