@@ -8,8 +8,9 @@ import { syncReminders } from '../lib/reminders';
 import { AVAILABILITY_LABEL, formatDate, formatMoney, fromDateInput, OVERALL_LABEL, STATUS_LABEL, toDateInput, TYPE_LABEL } from '../lib/format';
 import { APPLICATION_STATUSES, type ApplicationStatus, type EligibilityResult, type Opportunity } from '../lib/types';
 import { DeadlineTag, FitMeter, VerificationTag } from '../components/OpportunityRow';
+import { SaveButton } from '../components/SaveButton';
 import { ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
-import { IconBookmark, IconCheck, IconDoc, IconExternal, IconChat, IconX } from '../components/icons';
+import { IconCheck, IconDoc, IconExternal, IconChat, IconX } from '../components/icons';
 
 export function OpportunityDetail() {
   const { id = '' } = useParams();
@@ -51,7 +52,7 @@ export function OpportunityDetail() {
   return (
     <div className="page">
       <TopBar title="" back actions={
-        <button className={`icon-btn ${o.isSaved ? 'active' : ''}`} aria-label={o.isSaved ? 'Unsave' : 'Save'} aria-pressed={o.isSaved} onClick={toggleSave}><IconBookmark size={18} filled={o.isSaved} /></button>
+        <SaveButton saved={Boolean(o.isSaved)} onToggle={toggleSave} />
       } />
       <p className="faint">{TYPE_LABEL[o.opportunityType]} · {o.organization}</p>
       <h1>{o.title}</h1>
