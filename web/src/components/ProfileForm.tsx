@@ -68,13 +68,17 @@ type FormProps = { draft: Draft; set: (p: Partial<Draft>) => void; errors?: Fiel
 
 export function CollegePicker({ draft, set, errors = {} }: FormProps) {
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<College[]>([]);
+  const [results, setResults] = useState<College[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const [notListed, setNotListed] = useState(Boolean(draft.customCollege));
+  const query = q.trim(); // spaces alone show the full list
   useEffect(() => {
     let live = true;
-    const t = setTimeout(() => api.colleges(q || undefined).then((r) => live && setResults(r)).catch(() => {}), 200);
+    setResults(null);
+    setFailed(false);
+    const t = setTimeout(() => api.colleges(query || undefined).then((r) => live && setResults(r)).catch(() => live && setFailed(true)), 200);
     return () => { live = false; clearTimeout(t); };
-  }, [q]);
+  }, [query]);
   if (draft.college) {
     return (
       <div className="card soft row">
@@ -89,25 +93,27 @@ export function CollegePicker({ draft, set, errors = {} }: FormProps) {
         <Field label="Institution name" error={errors.college} hint="We'll add it to SarthiAI. Campus notices appear once your college joins.">
           <input id={fieldId('college')} className="input" value={draft.customCollege} onChange={(e) => set({ customCollege: e.target.value })} placeholder="e.g. Government Engineering College, Ajmer" />
         </Field>
-        <button type="button" className="link-btn small" onClick={() => setNotListed(false)}>Search the list instead</button>
+        <button type="button" className="link-btn small" onClick={() => { setNotListed(false); set({ customCollege: '' }); }}>Search the list instead</button>
       </>
     );
   }
   return (
     <div className="field">
       <span>Search your college</span>
-      <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, short name or city" />
-      <ul className="list card" style={{ padding: '4px 14px', marginTop: 8 }}>
-        {results.slice(0, 8).map((c) => (
+      <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, short name or city" aria-label="Search your college" />
+      <ul className="list card" style={{ padding: '4px 14px', marginTop: 8 }} aria-busy={results === null}>
+        {(results ?? []).slice(0, 8).map((c) => (
           <li key={c.id}>
             <button type="button" className="row" style={{ width: '100%', padding: '10px 0', background: 'none', border: 0, textAlign: 'left', cursor: 'pointer' }} onClick={() => set({ college: { id: c.id, name: c.name }, customCollege: '' })}>
               <span className="grow"><strong>{c.name}</strong><br /><span className="faint">{[c.city, c.state].filter(Boolean).join(', ')}</span></span>
             </button>
           </li>
         ))}
-        {results.length === 0 && <li className="faint" style={{ padding: '10px 0' }}>No matches.</li>}
+        {results === null && !failed && <li className="faint" style={{ padding: '10px 0' }}>Searching…</li>}
+        {failed && <li className="faint" style={{ padding: '10px 0' }}>Couldn’t load colleges. Check your connection.</li>}
+        {results?.length === 0 && <li className="faint" style={{ padding: '10px 0' }}>No matches for “{query}”.</li>}
       </ul>
-      <button type="button" className="link-btn small" style={{ marginTop: 10 }} onClick={() => setNotListed(true)}>My institution isn't listed</button>
+      <button type="button" className="link-btn small" style={{ marginTop: 10 }} onClick={() => { setNotListed(true); set({ customCollege: draft.customCollege || query }); }}>My institution isn't listed</button>
     </div>
   );
 }

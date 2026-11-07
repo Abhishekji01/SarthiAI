@@ -45,7 +45,16 @@ export function validatePreferences(d: Draft): FieldErrors {
   return e;
 }
 
+/** Step 1: a typed institution name must be a real name. */
+export function validateCollege(d: Draft): FieldErrors {
+  const name = d.customCollege.trim();
+  if (!d.college && d.customCollege && name.length < 2) return { college: 'Enter your institution’s full name' };
+  if (name.length > 160) return { college: 'Keep the name under 160 characters' };
+  return {};
+}
+
 export function validateStep(step: number, d: Draft, opts: { requireCore?: boolean; now?: Date } = {}): FieldErrors {
+  if (step === 0) return validateCollege(d);
   if (step === 1) return validateEducation(d, opts);
   if (step === 2) return validateInterests(d);
   if (step === 3) return validatePreferences(d);
@@ -53,7 +62,7 @@ export function validateStep(step: number, d: Draft, opts: { requireCore?: boole
 }
 
 export const validateAll = (d: Draft, opts: { requireCore?: boolean; now?: Date } = {}): FieldErrors =>
-  ({ ...validateEducation(d, opts), ...validateInterests(d), ...validatePreferences(d) });
+  ({ ...validateCollege(d), ...validateEducation(d, opts), ...validateInterests(d), ...validatePreferences(d) });
 
 const SERVER_FIELD: Record<string, FieldKey> = {
   'profile.collegeId': 'college', 'profile.customCollegeName': 'college', name: 'name',
