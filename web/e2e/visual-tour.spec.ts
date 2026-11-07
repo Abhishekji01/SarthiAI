@@ -1,0 +1,57 @@
+import { test } from '@playwright/test';
+import { signedInStudent } from './helpers';
+/** Screenshot tour of the changed screens (light + dark). Runs only with SHOTS=<dir>, e.g. SHOTS=/tmp/shots npx playwright test visual-tour */
+const OUT = process.env.SHOTS!;
+test.skip(!OUT, 'set SHOTS=<dir> to capture screenshots');
+for (const scheme of ['light', 'dark'] as const) {
+  test(`tour ${scheme}`, async ({ page, request }) => {
+    const p = test.info().project.name;
+    await page.emulateMedia({ colorScheme: scheme });
+    const shot = (n: string) => page.screenshot({ path: `${OUT}/${p}-${scheme}-${n}.png` });
+    await page.goto('/welcome');
+    await page.getByRole('button', { name: 'I already have an account' }).click();
+    await shot('01-signin');
+    await page.getByRole('button', { name: 'Forgot password?' }).click();
+    await page.getByLabel('Email').fill(`tour${Date.now()}@example.test`);
+    await page.getByRole('button', { name: 'Send reset link' }).click();
+    await page.getByRole('heading', { name: 'Check your email' }).waitFor();
+    await shot('02-sent');
+    await page.goto('/reset-password?token=abc');
+    await page.getByLabel('New password', { exact: true }).fill('short');
+    await shot('03-reset');
+    await signedInStudent(page, request, { onboarded: false, profile: { skills: ['Python', 'Java', 'C++', 'React', 'SQL', 'Git', 'Linux'], interests: ['AI/ML', 'Hackathons'] } });
+    await page.goto('/onboarding');
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByLabel('Degree').selectOption('B.Tech');
+    await page.getByLabel('Current year of study').selectOption('4');
+    await page.getByLabel('Graduation year (optional)').selectOption('2033');
+    await page.getByLabel('CGPA (optional, out of 10)').fill('15');
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.waitForTimeout(400);
+    await shot('04-step2-errors');
+    await page.getByLabel('Graduation year (optional)').selectOption('2027');
+    await page.getByLabel('CGPA (optional, out of 10)').fill('8.4');
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByLabel('Career goal').focus();
+    await page.waitForTimeout(400);
+    await shot('05-step3-goal');
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByLabel('Annual family income (₹)').fill('-5000');
+    await page.getByRole('button', { name: 'Finish' }).click();
+    await page.waitForTimeout(400);
+    await shot('06-step4-income');
+    await page.getByLabel('Annual family income (₹)').fill('');
+    await page.getByRole('button', { name: 'Finish' }).click();
+    await page.waitForURL((u) => u.pathname === '/');
+    await page.locator('a.tile .num').first().filter({ hasNotText: '–' }).waitFor();
+    await shot('07-home');
+    await page.goto('/sarthi');
+    await page.getByLabel('Message Sarthi').fill('Which scholarships can I apply to this month?');
+    await page.getByRole('button', { name: 'Send' }).click();
+    await page.locator('.bubble.assistant').last().waitFor();
+    await page.waitForTimeout(500);
+    await shot('08-sarthi');
+    await page.goto('/profile');
+    await shot('09-profile');
+  });
+}
