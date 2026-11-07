@@ -1,4 +1,4 @@
-import { Opportunity, computeAvailability, serializeOpportunity } from '../models/Opportunity.js';
+import { Opportunity, OPPORTUNITY_TYPES, computeAvailability, serializeOpportunity } from '../models/Opportunity.js';
 import { matchesPlace, placeLabel, proximity, PROXIMITY, userPlaces } from '../matching/places.js';
 import { SavedOpportunity } from '../models/SavedOpportunity.js';
 import { Application } from '../models/Application.js';
@@ -153,6 +153,30 @@ export async function searchOpportunities(user, q, now = new Date()) {
   const { items, meta } = paginate(rows, q.page, q.limit);
   const nearby = q.sort === 'nearby' ? { places, count: rows.filter((r) => r.item.nearby).length } : undefined;
   return { items: items.map((r) => r.item), meta: { ...meta, ...(textMeta ? { search: textMeta } : {}), ...(nearby ? { nearby } : {}) } };
+}
+
+/**
+ * Per-type counts for the Home tiles. "open" uses exactly Find's default filter
+ * (visible to the student, not closed), so Home and Find always agree. The
+ * eligibility split is secondary: most scholarships need a detail the student
+ * has not shared yet, which must not make them disappear from the count.
+ */
+export async function openSummary(user, now = new Date()) {
+  const docs = await Opportunity.find(visibilityFilter(user)).limit(MAX_CANDIDATES).lean();
+  const types = Object.fromEntries(OPPORTUNITY_TYPES.map((t) => [t, { open: 0, likelyEligible: 0, needDetails: 0, likelyIneligible: 0, closingIn30Days: 0 }]));
+  const in30 = now.getTime() + 30 * 86400000;
+  for (const o of docs) {
+    if (computeAvailability(o, now) === 'closed') continue;
+    const t = types[o.opportunityType];
+    if (!t) continue;
+    t.open += 1;
+    const overall = checkEligibility(o, user.profile, { now }).overall;
+    if (overall === 'all_criteria_met') t.likelyEligible += 1;
+    else if (overall === 'missing_information') t.needDetails += 1;
+    else if (overall === 'likely_ineligible') t.likelyIneligible += 1;
+    if (o.deadline && new Date(o.deadline).getTime() <= in30) t.closingIn30Days += 1;
+  }
+  return { types };
 }
 
 /** Cities with open in-person listings of a type, busiest first (for the Discover city picker). */

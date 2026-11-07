@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { opportunityQuerySchema, idParams, eligibilityCheckSchema, matchesQuerySchema } from '../validators/schemas.js';
-import { inPersonPlaces, searchOpportunities, getVisibleOpportunity, recommendedMatches, userStateFor, presentWithMatch, visibilityFilter } from '../services/opportunities.js';
+import { inPersonPlaces, openSummary, searchOpportunities, getVisibleOpportunity, recommendedMatches, userStateFor, presentWithMatch, visibilityFilter } from '../services/opportunities.js';
 import { checkEligibility } from '../eligibility/engine.js';
 import { SavedOpportunity } from '../models/SavedOpportunity.js';
 import { Opportunity, serializeOpportunity } from '../models/Opportunity.js';
@@ -15,6 +15,8 @@ opportunitiesRouter.get('/', validate({ query: opportunityQuerySchema }), async 
   const { items, meta } = await searchOpportunities(req.user, req.valid.query);
   send(res, items, { meta });
 });
+
+opportunitiesRouter.get('/summary', async (req, res) => send(res, await openSummary(req.user)));
 
 opportunitiesRouter.get('/places', validate({ query: opportunityQuerySchema }), async (req, res) => send(res, await inPersonPlaces(req.user, req.valid.query.type)));
 

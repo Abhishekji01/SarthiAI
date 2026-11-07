@@ -212,3 +212,7 @@ export interface GapPlan {
   quickWins: { field: string; label: string; count: number; examples: PlanOpportunity[] }[];
   skills: PlanSkill[]; experience: PlanOpportunity[]; steps: PlanStep[];
 }
+
+/** GET /opportunities/summary: open listings per type (Find's default filter) with the eligibility split. */
+export interface TypeSummary { open: number; likelyEligible: number; needDetails: number; likelyIneligible: number; closingIn30Days: number }
+export interface OpenSummary { types: Record<OpportunityType, TypeSummary> }

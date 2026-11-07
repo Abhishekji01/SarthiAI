@@ -1,7 +1,7 @@
 import { isNative, storage } from './platform';
 import type {
   AdminMetrics, Announcement, Application, ChatReply, College, DeadlineItem, Draft, DraftKind, EligibilityResult, GapPlan,
-  NextMove, Opportunity, PageMeta, Profile, Resource, Roadmap, User,
+  NextMove, OpenSummary, Opportunity, PageMeta, Profile, Resource, Roadmap, User,
 } from './types';
 
 import { buildFlags, resolveBaseUrl, shouldAttachToken, trimUrl } from './serverConfig';
@@ -123,6 +123,7 @@ export const api = {
   colleges: (q?: string) => get<College[]>('/colleges', { q }),
 
   opportunities: (q: OpportunityQuery) => getWithMeta<Opportunity[]>('/opportunities', q as Query) as Promise<{ data: Opportunity[]; meta: PageMeta }>,
+  openSummary: () => get<OpenSummary>('/opportunities/summary'),
   eventPlaces: (type: string) => get<{ city: string; count: number }[]>(`/opportunities/places?type=${encodeURIComponent(type)}`),
   opportunity: (id: string) => get<Opportunity>(`/opportunities/${id}`),
   save: (id: string) => post(`/opportunities/${id}/save`),

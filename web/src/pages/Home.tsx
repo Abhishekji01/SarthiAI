@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { useUser } from '../lib/session';
 import { useAsync } from '../lib/useAsync';
 import { daysUntil, greeting, initials, relativeDays } from '../lib/format';
-import type { NextMove, Opportunity, OpportunityType } from '../lib/types';
+import type { NextMove, OpportunityType, TypeSummary } from '../lib/types';
 import { OpportunityRow } from '../components/OpportunityRow';
 import { Empty, ErrorState, Skeleton } from '../components/ui';
 import { IconArrowRight, IconBookmark, IconChat, IconDoc, IconMegaphone, IconRoute } from '../components/icons';
@@ -19,22 +19,22 @@ function moveLink(m: NextMove) {
   }
 }
 
-/** The four category tiles. `types` are grouped together (research includes fellowships, etc.). */
-const CATEGORIES: { key: string; label: string; cat: string; types: OpportunityType[]; link: OpportunityType }[] = [
-  { key: 'scholarship', label: 'Scholarships', cat: 'cat-scholarship', types: ['scholarship'], link: 'scholarship' },
-  { key: 'internship', label: 'Internships', cat: 'cat-internship', types: ['internship'], link: 'internship' },
-  { key: 'research', label: 'Research', cat: 'cat-research', types: ['research', 'fellowship'], link: 'research' },
-  { key: 'hackathon', label: 'Hackathons', cat: 'cat-hackathon', types: ['hackathon', 'competition'], link: 'hackathon' },
+/** The four category tiles. Each counts exactly what its Find link lists (open listings of that type). */
+const CATEGORIES: { label: string; cat: string; type: OpportunityType }[] = [
+  { label: 'Scholarships', cat: 'cat-scholarship', type: 'scholarship' },
+  { label: 'Internships', cat: 'cat-internship', type: 'internship' },
+  { label: 'Research', cat: 'cat-research', type: 'research' },
+  { label: 'Hackathons', cat: 'cat-hackathon', type: 'hackathon' },
 ];
 
-/** One short, true line for a category tile, from the items themselves. */
-function tileNote(items: Opportunity[]) {
-  if (!items.length) return 'Nothing open right now';
-  const remote = items.filter((o) => o.workMode === 'remote').length;
-  const thisMonth = items.filter((o) => o.deadline && daysUntil(o.deadline) >= 0 && daysUntil(o.deadline) <= 30).length;
-  if (thisMonth) return `${thisMonth} close this month`;
-  if (remote) return `${remote} remote`;
-  return 'Open for you';
+/** Secondary line for a tile: how the open listings split by eligibility. */
+export function tileNote(t: TypeSummary | undefined) {
+  if (!t || t.open === 0) return 'Nothing open right now';
+  const parts = [];
+  if (t.likelyEligible) parts.push(`${t.likelyEligible} fit you`);
+  if (t.needDetails) parts.push(`${t.needDetails} need your details`);
+  if (!parts.length && t.closingIn30Days) parts.push(`${t.closingIn30Days} close within 30 days`);
+  return parts.join(' · ') || 'Open now';
 }
 
 export function Home() {
@@ -45,6 +45,7 @@ export function Home() {
   const roadmap = useAsync(() => api.roadmap(), []);
   const notices = useAsync(() => api.announcements(), []);
   const plan = useAsync(() => api.plan(), []);
+  const summary = useAsync(() => api.openSummary(), []);
 
   const lead = moves.data?.[0];
   const all = matches.data?.data ?? [];
@@ -94,12 +95,12 @@ export function Home() {
         ) : null}
 
         {CATEGORIES.map((c) => {
-          const items = all.filter((o) => c.types.includes(o.opportunityType));
+          const t = summary.data?.types[c.type];
           return (
-            <Link key={c.key} to={`/discover?type=${c.link}`} className={`tile ${c.cat}`} aria-label={`${items.length} ${c.label}`}>
-              <span className="num">{matches.loading && !matches.data ? '–' : items.length}</span>
+            <Link key={c.type} to={`/discover?type=${c.type}`} className={`tile ${c.cat}`} aria-label={`${t ? t.open : 'Loading'} open ${c.label}. ${summary.data ? tileNote(t) : ''}`}>
+              <span className="num">{summary.loading && !summary.data ? '–' : summary.error ? '?' : t?.open ?? 0}</span>
               <span className="tile-label">{c.label}</span>
-              <span className="tile-note">{matches.data ? tileNote(items) : ' '}</span>
+              <span className="tile-note">{summary.data ? tileNote(t) : ' '}</span>
             </Link>
           );
         })}
