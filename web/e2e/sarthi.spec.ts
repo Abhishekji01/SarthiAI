@@ -5,7 +5,7 @@ test('H5: "this month" lists every scholarship closing this month (quick answers
   await signedInStudent(page, request, { profile: { degree: 'B.Tech', currentYear: 2 } });
   await page.goto('/sarthi');
   await page.getByLabel('Message Sarthi').fill('Which scholarships can I apply to this month?');
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
   const bubble = page.locator('.bubble.assistant').last();
   await expect(bubble).toContainText(/close this month|No scholarships close this month/);
   const text = (await bubble.textContent()) ?? '';

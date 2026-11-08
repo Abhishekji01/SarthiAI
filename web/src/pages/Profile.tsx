@@ -9,7 +9,7 @@ import { isNative, platform, reminderPermission, requestReminderPermission, type
 import { syncReminders } from '../lib/reminders';
 import { CollegePicker, draftFrom, EducationFields, InterestFields, PreferenceFields, ProjectFields, toPatch, type Draft } from '../components/ProfileForm';
 import { Field, Sheet, TopBar, useToast } from '../components/ui';
-import { IconBell, IconBookmark, IconDoc, IconMegaphone, IconSettings, IconShield, IconUser } from '../components/icons';
+import { IconBell, IconBookmark, IconDoc, IconMegaphone, IconSearch, IconSettings, IconShield, IconUser } from '../components/icons';
 import { usePageTitle } from '../lib/usePageTitle';
 
 export function ProfilePage() {
@@ -68,6 +68,7 @@ export function ProfilePage() {
         <ul className="list card" style={{ padding: '2px 16px' }}>
           <li><Link to="/saved" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconBookmark size={20} /> <span className="grow">Saved opportunities</span> ›</Link></li>
           <li><Link to="/drafts" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconDoc size={20} /> <span className="grow">Drafts</span> ›</Link></li>
+          <li><Link to="/searches" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconSearch size={20} /> <span className="grow">Saved searches</span> ›</Link></li>
           {isAdmin && <li><Link to="/admin" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconMegaphone size={20} /> <span className="grow">Campus admin</span> ›</Link></li>}
           <li><button className="row" style={{ padding: '14px 0', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setPrivacyOpen(true)}><IconShield size={20} /> <span className="grow" style={{ textAlign: 'left' }}>Privacy & data</span> ›</button></li>
           {serverOverrideAllowed && <li><button className="row" style={{ padding: '14px 0', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setDevOpen(true)}><IconSettings size={20} /> <span className="grow" style={{ textAlign: 'left' }}>Developer · server</span> ›</button></li>}

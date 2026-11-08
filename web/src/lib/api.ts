@@ -1,7 +1,7 @@
 import { isNative, storage } from './platform';
 import type {
   AdminMetrics, Announcement, Application, ChatReply, College, DeadlineItem, Draft, DraftKind, EligibilityResult, GapPlan,
-  NextMove, OpenSummary, Opportunity, PageMeta, Profile, Resource, Roadmap, User,
+  NextMove, OpenSummary, Opportunity, PageMeta, Profile, Resource, Roadmap, SavedSearch, User,
 } from './types';
 
 import { buildFlags, resolveBaseUrl, shouldAttachToken, trimUrl } from './serverConfig';
@@ -122,6 +122,7 @@ const del = <T>(path: string, body?: unknown) => request<T>('DELETE', path, { bo
 export interface OpportunityQuery {
   q?: string; type?: string; workMode?: string; location?: string; verifiedOnly?: boolean; includeClosed?: boolean;
   campusOnly?: boolean; mentions?: boolean; deadlineWithinDays?: number; hasPrize?: boolean; sort?: 'relevance' | 'deadline' | 'recent' | 'nearby'; page?: number; limit?: number;
+  minAnnualAmount?: number; hideIneligible?: boolean;
 }
 export type ProfilePatch = { name?: string; profile?: Partial<Profile> & { customCollegeName?: string }; notificationPrefs?: Partial<User['notificationPrefs']>; completeOnboarding?: boolean };
 
@@ -193,6 +194,12 @@ export const api = {
   draftEmail: (b: { opportunityId: string; tone?: string; recipientName?: string; extraContext?: string }) => post<Draft>('/ai/draft-email', b),
   generateResume: (b: { kind: 'resume' | 'cover_letter' | 'resume_summary'; opportunityId?: string | null; extraContext?: string }) => post<Draft>('/ai/resume', b),
   explainMatch: (id: string) => post<{ explanation: string; nextSteps: string[] }>(`/ai/explain-match/${id}`),
+
+  searches: () => get<SavedSearch[]>('/searches'),
+  saveSearch: (b: { name: string; params: Record<string, string>; alerts: boolean }) => post<SavedSearch>('/searches', b),
+  updateSearch: (id: string, b: { name?: string; alerts?: boolean }) => patch<SavedSearch>(`/searches/${id}`, b),
+  deleteSearch: (id: string) => del(`/searches/${id}`),
+  searchCount: (id: string) => get<{ total: number }>(`/searches/${id}/count`),
 
   announcements: () => get<Announcement[]>('/campus/announcements'),
   nextMoves: () => get<NextMove[]>('/me/next-moves'),

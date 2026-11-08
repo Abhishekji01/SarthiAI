@@ -106,6 +106,7 @@ export async function searchOpportunities(user, q, now = new Date()) {
     docs = docs.filter((o) => matchesPlace(o, q.location, { strict }));
   }
   if (q.hasPrize) docs = docs.filter((o) => o.award?.amount != null || o.award?.description);
+  if (q.minAnnualAmount) docs = docs.filter((o) => Math.max(annualAmount(o.stipend), annualAmount(o.award)) >= q.minAnnualAmount);
   if (q.degree) docs = docs.filter((o) => !o.eligibleDegrees?.length || degreeMatches(o.eligibleDegrees, q.degree));
   if (q.year) docs = docs.filter((o) => !o.eligibleYears?.length || o.eligibleYears.includes(q.year));
   if (q.skills?.length) {
@@ -143,7 +144,7 @@ export async function searchOpportunities(user, q, now = new Date()) {
 
   // Sarthi's "what can I apply to" lists leave out listings a required criterion rules out (and say how many).
   let excludedLikelyIneligible = 0;
-  if (q.excludeLikelyIneligible) {
+  if (q.excludeLikelyIneligible || q.hideIneligible) {
     const before = rows.length;
     rows = rows.filter((r) => r.match.eligibilityOverall !== 'likely_ineligible');
     excludedLikelyIneligible = before - rows.length;
@@ -169,7 +170,7 @@ export async function searchOpportunities(user, q, now = new Date()) {
 
   const { items, meta } = paginate(rows, q.page, q.limit);
   const nearby = q.sort === 'nearby' ? { places, count: rows.filter((r) => r.item.nearby).length } : undefined;
-  return { items: items.map((r) => r.item), meta: { ...meta, ...(textMeta ? { search: textMeta } : {}), ...(nearby ? { nearby } : {}), ...(q.excludeLikelyIneligible ? { excludedLikelyIneligible } : {}) } };
+  return { items: items.map((r) => r.item), meta: { ...meta, ...(textMeta ? { search: textMeta } : {}), ...(nearby ? { nearby } : {}), ...(q.excludeLikelyIneligible || q.hideIneligible ? { excludedLikelyIneligible } : {}) } };
 }
 
 /**
@@ -195,6 +196,12 @@ export async function openSummary(user, now = new Date()) {
     if (o.deadline && new Date(o.deadline).getTime() <= in30) t.closingIn30Days += 1;
   }
   return { types };
+}
+
+/** A stated amount as rupees per year (monthly x12; one-time and totals as stated). Unknown = 0. */
+export function annualAmount(m) {
+  if (!m || m.amount == null || (m.currency && m.currency !== 'INR')) return 0;
+  return m.period === 'per_month' ? m.amount * 12 : m.amount;
 }
 
 /** Cities with open in-person listings of a type, busiest first (for the Discover city picker). */

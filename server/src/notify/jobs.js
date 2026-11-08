@@ -6,7 +6,9 @@ import { SavedOpportunity } from '../models/SavedOpportunity.js';
 import { Application } from '../models/Application.js';
 import { DateWatch } from '../models/Notification.js';
 import { getDeadlines } from '../services/nextMoves.js';
-import { recommendedMatches } from '../services/opportunities.js';
+import { recommendedMatches, searchOpportunities } from '../services/opportunities.js';
+import { SavedSearch } from '../models/SavedSearch.js';
+import { searchQueryFromParams } from '../validators/schemas.js';
 import { calendarDaysUntil } from '../utils/dates.js';
 import { appUrl, simpleEmail } from '../mail/mailer.js';
 import { sendOnce } from './channels.js';
@@ -117,9 +119,38 @@ export async function runDateWatches(now = new Date()) {
   return { dateAlerts: sent };
 }
 
+/** Saved searches with alerts: at most one email a day per search, listing new matches since the last check. */
+export async function runSavedSearchAlerts(now = new Date()) {
+  const dayAgo = new Date(now.getTime() - 20 * 3600000);
+  const searches = await SavedSearch.find({ alerts: true, lastCheckedAt: { $lte: dayAgo } }).lean();
+  let sent = 0;
+  for (const s of searches) {
+    const user = await User.findById(s.userId);
+    await SavedSearch.updateOne({ _id: s._id }, { $set: { lastCheckedAt: now } });
+    if (!user) continue;
+    let items;
+    try {
+      ({ items } = await searchOpportunities(user, { ...searchQueryFromParams(Object.fromEntries(Object.entries(s.params))), page: 1, limit: 50 }, now));
+    } catch { continue; }
+    const fresh = items.filter((o) => new Date(o.createdAt ?? 0) > new Date(s.lastCheckedAt)).slice(0, 10);
+    if (!fresh.length) continue;
+    const query = new URLSearchParams(Object.fromEntries(Object.entries(s.params))).toString();
+    const r = await sendOnce(user, `search:${s._id}:${istDay(now)}`, {
+      kind: 'search_alert', subject: `${fresh.length} new for “${s.name}”`,
+      ...simpleEmail({
+        greetingName: user.name.split(' ')[0],
+        paragraphs: [`New listings for your saved search “${s.name}”:\n${fresh.map((o) => `• ${o.title} (${o.organization})${o.deadline ? ` — closes ${fmt(o.deadline)}` : ''}`).join('\n')}`, `Stop these emails: turn off alerts for this search in Find ▸ Saved searches, or ${unsubscribeUrl(user, 'all')}`],
+        action: { label: 'See all results', url: `${appUrl()}/discover?${query}` },
+      }),
+    });
+    if (r.sent) sent += 1;
+  }
+  return { searchAlerts: sent };
+}
+
 export async function runAllJobs(now = new Date(), { forceDigest = false } = {}) {
   const out = {};
-  for (const [name, job] of [['dateWatches', () => runDateWatches(now)], ['deadlines', () => runDeadlineReminders(now)], ['digest', () => runWeeklyDigest(now, { force: forceDigest })]]) {
+  for (const [name, job] of [['dateWatches', () => runDateWatches(now)], ['deadlines', () => runDeadlineReminders(now)], ['digest', () => runWeeklyDigest(now, { force: forceDigest })], ['searches', () => runSavedSearchAlerts(now)]]) {
     try { Object.assign(out, await job()); } catch (err) { logger.error('Notification job failed', { job: name, error: err }); out[`${name}Error`] = true; }
   }
   return out;

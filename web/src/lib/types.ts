@@ -70,7 +70,7 @@ export interface Opportunity {
   searchMatch?: { relevance: number; matchedTerms: string[]; approximate: boolean };
 }
 
-export interface PageMeta { page: number; limit: number; total: number; totalPages: number; nearby?: { places: string[]; count: number }; search?: { relaxed: boolean; terms: string[]; closedMatches?: number; hiddenMentions?: number } }
+export interface PageMeta { page: number; limit: number; total: number; totalPages: number; excludedLikelyIneligible?: number; nearby?: { places: string[]; count: number }; search?: { relaxed: boolean; terms: string[]; closedMatches?: number; hiddenMentions?: number } }
 
 export interface Criterion {
   key: string; kind: string; requirement: string; mandatory: boolean; studentValue: string | null;
@@ -225,3 +225,5 @@ export interface GapPlan {
 /** GET /opportunities/summary: open listings per type (Find's default filter) with the eligibility split. */
 export interface TypeSummary { open: number; likelyEligible: number; needDetails: number; likelyIneligible: number; closingIn30Days: number }
 export interface OpenSummary { types: Record<OpportunityType, TypeSummary> }
+
+export interface SavedSearch { id: string; name: string; params: Record<string, string>; query: string; alerts: boolean; createdAt: string }

@@ -10,7 +10,7 @@ const disabled = env.NODE_ENV === 'test';
 
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 600,
+  limit: env.API_REQUESTS_PER_15_MIN,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skip: () => disabled,

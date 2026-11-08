@@ -7,6 +7,8 @@ import { Roadmap } from '../models/Roadmap.js';
 import { Draft } from '../models/Draft.js';
 import { EligibilityAnswer } from '../models/EligibilityAnswer.js';
 import { Session } from '../models/Session.js';
+import { SavedSearch } from '../models/SavedSearch.js';
+import { DateWatch, Notification } from '../models/Notification.js';
 import { verifyPassword } from '../auth/tokens.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -77,6 +79,9 @@ router.delete('/', validate({ body: deleteAccountSchema }), async (req, res) => 
     Draft.deleteMany({ userId }),
     EligibilityAnswer.deleteMany({ userId }),
     Session.deleteMany({ userId }),
+    SavedSearch.deleteMany({ userId }),
+    DateWatch.deleteMany({ userId }),
+    Notification.deleteMany({ userId }),
   ]);
   await User.deleteOne({ _id: userId });
   send(res, { deleted: true });

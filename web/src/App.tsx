@@ -28,6 +28,7 @@ const ProfilePage = lazy(() => import('./pages/Profile').then((m) => ({ default:
 const EditProfile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.EditProfile })));
 const Plan = lazy(() => import('./pages/Plan').then((m) => ({ default: m.Plan })));
 const Saved = lazy(() => import('./pages/Saved').then((m) => ({ default: m.Saved })));
+const SavedSearches = lazy(() => import('./pages/SavedSearches').then((m) => ({ default: m.SavedSearches })));
 const Admin = lazy(() => import('./pages/Admin').then((m) => ({ default: m.Admin })));
 
 function useNativeChrome() {
@@ -54,7 +55,7 @@ function useNativeChrome() {
 }
 
 /** Screens that need an account (signed-out visitors are sent to sign in). */
-const PRIVATE_PATHS = ['/', '/onboarding', '/discover', '/sarthi', '/roadmap', '/plan', '/applications', '/saved', '/drafts', '/drafts/:id', '/profile', '/profile/edit', '/admin/*'];
+const PRIVATE_PATHS = ['/', '/onboarding', '/discover', '/sarthi', '/roadmap', '/plan', '/applications', '/saved', '/drafts', '/drafts/:id', '/profile', '/profile/edit', '/admin/*', '/searches'];
 
 /** Signed-out visitor on an app screen: sign in first, then return to it. */
 function ToWelcome() {
@@ -108,6 +109,7 @@ export function App() {
           <Route path="plan" element={<Plan />} />
           <Route path="applications" element={<Applications />} />
           <Route path="saved" element={<Saved />} />
+          <Route path="searches" element={<SavedSearches />} />
           <Route path="drafts" element={<Drafts />} />
           <Route path="drafts/:id" element={<DraftEditor />} />
           <Route path="profile" element={<ProfilePage />} />

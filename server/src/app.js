@@ -22,6 +22,7 @@ import { readFileSync } from 'node:fs';
 import { isAppRoute, looksLikeFile, opportunityMeta, robotsTxt, sitemapXml, withMeta } from './web/seo.js';
 import publicRoutes, { findPublicOpportunity, publicFilter } from './routes/public.js';
 import internalRoutes from './routes/internal.js';
+import searchRoutes from './routes/searches.js';
 import { Opportunity } from './models/Opportunity.js';
 import mongoose from 'mongoose';
 
@@ -79,6 +80,7 @@ export function createApp() {
   app.use('/api/admin', adminRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/internal', internalRoutes);
+  app.use('/api/searches', searchRoutes);
 
   if (serveWeb) {
     // Single deployment: the same server hosts the web app (PWA) and the API.

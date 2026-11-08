@@ -131,9 +131,34 @@ export const opportunityQuerySchema = z.object({
   // Only listings that state an award or prize.
   hasPrize: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
   sort: z.enum(['relevance', 'deadline', 'recent', 'nearby']).default('relevance'),
+  // Stipend or award of at least this many rupees a year (monthly stipends count x12).
+  minAnnualAmount: z.coerce.number().int().min(0).max(100000000).optional(),
+  // Leave out listings a required criterion rules out for this student.
+  hideIneligible: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
+
+/** Find's URL parameters that a saved search keeps (the same names the web app uses). */
+export const SEARCH_PARAM_KEYS = ['q', 'type', 'workMode', 'location', 'within', 'hasPrize', 'verifiedOnly', 'campusOnly', 'includeClosed', 'sort', 'minAmount', 'hideIneligible'];
+const searchParams = z.partialRecord(z.enum(SEARCH_PARAM_KEYS), z.string().trim().max(120)).refine((p) => Object.keys(p).length > 0, 'Choose a search or a filter first');
+
+export const savedSearchCreateSchema = z.object({
+  name: line(80).pipe(z.string().min(1, 'Give the search a name')),
+  params: searchParams,
+  alerts: z.boolean().default(false),
+});
+
+export const savedSearchPatchSchema = z.object({
+  name: line(80).pipe(z.string().min(1)).optional(),
+  alerts: z.boolean().optional(),
+});
+
+/** Turns Find's URL parameters into a search query (as GET /api/opportunities would parse them). */
+export function searchQueryFromParams(params) {
+  const { within, minAmount, ...rest } = params;
+  return opportunityQuerySchema.parse({ ...rest, ...(within ? { deadlineWithinDays: within } : {}), ...(minAmount ? { minAnnualAmount: minAmount } : {}) });
+}
 
 export const idParams = z.object({ id: objectId });
 

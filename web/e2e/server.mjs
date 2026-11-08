@@ -22,6 +22,7 @@ const env = {
   LOG_LEVEL: 'warn',
   MAIL_OUTBOX_FILE: OUTBOX,
   AUTH_REQUESTS_PER_15_MIN: '5000',
+  API_REQUESTS_PER_15_MIN: '100000',
 };
 rmSync(OUTBOX, { force: true });
 const seed = spawnSync('node', ['scripts/seed.js', '--reset'], { cwd: server, env, stdio: ['ignore', 'ignore', 'inherit'] });

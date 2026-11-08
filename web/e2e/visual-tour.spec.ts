@@ -47,7 +47,7 @@ for (const scheme of ['light', 'dark'] as const) {
     await shot('07-home');
     await page.goto('/sarthi');
     await page.getByLabel('Message Sarthi').fill('Which scholarships can I apply to this month?');
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
     await page.locator('.bubble.assistant').last().waitFor();
     await page.waitForTimeout(500);
     await shot('08-sarthi');

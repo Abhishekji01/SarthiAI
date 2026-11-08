@@ -9,7 +9,9 @@ import { type Opportunity, type OpportunityType, type PageMeta } from '../lib/ty
 const OPPORTUNITY_TYPES: OpportunityType[] = ['scholarship', 'internship', 'research', 'hackathon', 'job', 'fellowship', 'competition', 'program'];
 import { OpportunityRow } from '../components/OpportunityRow';
 import { Empty, ErrorState, Field, Sheet, Skeleton, TopBar } from '../components/ui';
-import { IconCompass, IconFilter, IconPin, IconSearch } from '../components/icons';
+import { IconBookmark, IconCompass, IconFilter, IconPin, IconSearch } from '../components/icons';
+import { Link } from 'react-router-dom';
+import { useToast } from '../components/ui';
 import { usePageTitle } from '../lib/usePageTitle';
 
 /** Plural chip labels: "Scholarships", "Internships", "Research", "Hackathons"… */
@@ -35,6 +37,7 @@ export function Discover() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
   const seq = useRef(0);
 
@@ -50,6 +53,8 @@ export function Discover() {
     campusOnly: params.get('campusOnly') === 'true' || undefined,
     mentions: params.get('mentions') === 'true' || undefined,
     deadlineWithinDays: params.get('within') ? Number(params.get('within')) : undefined,
+    minAnnualAmount: params.get('minAmount') ? Number(params.get('minAmount')) : undefined,
+    hideIneligible: params.get('hideIneligible') === 'true' || undefined,
   };
   const key = `${params.toString()}|${places.join(',')}`;
   const cities = useAsync(() => (eventType ? api.eventPlaces(eventType) : Promise.resolve([])), [eventType]);
@@ -105,7 +110,7 @@ export function Discover() {
     setParams(next, { replace: true });
   }
 
-  const activeFilters = ['workMode', 'location', 'verifiedOnly', 'includeClosed', 'campusOnly', 'within', 'hasPrize'].filter((k) => params.get(k)).length + (query.sort !== defaultSort ? 1 : 0);
+  const activeFilters = ['workMode', 'location', 'verifiedOnly', 'includeClosed', 'campusOnly', 'within', 'hasPrize', 'minAmount', 'hideIneligible'].filter((k) => params.get(k)).length + (query.sort !== defaultSort ? 1 : 0);
   const nearOn = query.sort === 'nearby';
   const toggleNear = () => {
     if (!nearOn && !places.length) setCityOpen(true);
@@ -114,9 +119,10 @@ export function Discover() {
 
   return (
     <div className="page">
-      <TopBar title="Find" actions={
+      <TopBar title="Find" actions={<>
+        <Link to="/searches" className="icon-btn" aria-label="Saved searches" title="Saved searches"><IconBookmark size={18} /></Link>
         <button className={`icon-btn ${activeFilters ? 'active' : ''}`} aria-label={`Filters${activeFilters ? ` (${activeFilters} active)` : ''}`} onClick={() => setFiltersOpen(true)}><IconFilter /></button>
-      } />
+      </>} />
       <form className="search" role="search" onSubmit={(e) => { e.preventDefault(); update({ q: text.trim() || null }); }}>
         <IconSearch size={18} />
         <input className="input" type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder='Try "ML internship" or "girls"' aria-label="Search opportunities" enterKeyHint="search" />
@@ -144,6 +150,8 @@ export function Discover() {
           <button key={d} className={`chip ${query.deadlineWithinDays === d ? 'on' : ''}`} aria-pressed={query.deadlineWithinDays === d} onClick={() => update({ within: query.deadlineWithinDays === d ? null : String(d) })}>{label}</button>
         ))}
         {events && <button className={`chip ${query.hasPrize ? 'on' : ''}`} aria-pressed={Boolean(query.hasPrize)} onClick={() => update({ hasPrize: query.hasPrize ? null : 'true' })}>Has prizes</button>}
+        <button className={`chip ${query.sort === 'deadline' ? 'on' : ''}`} aria-pressed={query.sort === 'deadline'} onClick={() => update({ sort: query.sort === 'deadline' ? null : 'deadline' })}>Soonest deadline</button>
+        <button className={`chip ${query.hideIneligible ? 'on' : ''}`} aria-pressed={Boolean(query.hideIneligible)} onClick={() => update({ hideIneligible: query.hideIneligible ? null : 'true' })}>Hide likely not eligible</button>
         {activeFilters > 0 && <button className="chip chip-clear" onClick={() => { const q = params.get('q'); const type = params.get('type'); setParams(new URLSearchParams(Object.entries({ q, type }).filter(([, v]) => v) as [string, string][]), { replace: true }); }}>Clear</button>}
       </div>
 
@@ -161,6 +169,8 @@ export function Discover() {
             {meta.total} result{meta.total === 1 ? '' : 's'}
             {meta.search?.relaxed && ' · no exact match, showing closely related results'}
             {query.sort === 'relevance' ? ' · ranked by fit' : query.sort === 'deadline' ? ' · soonest deadline first' : query.sort === 'nearby' ? ' · nearest first' : ' · recently updated'}
+            {query.hideIneligible && meta.excludedLikelyIneligible ? ` · ${meta.excludedLikelyIneligible} hidden as likely not eligible` : ''}
+            {searchParamsToSave(params) && <>{' · '}<button type="button" className="link-btn" onClick={() => setSaveOpen(true)}>Save this search</button></>}
           </p>
         )}
         {error && <ErrorState error={error} onRetry={() => load(1)} />}
@@ -221,7 +231,14 @@ export function Discover() {
             ))}
           </div>
         </div>
+        <Field label={amountLabel(query.type)}>
+          <select className="input" value={params.get('minAmount') ?? ''} onChange={(e) => update({ minAmount: e.target.value || null })}>
+            <option value="">Any amount (including not stated)</option>
+            {amountOptions(query.type).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          </select>
+        </Field>
         {events && <label className="check"><input type="checkbox" checked={Boolean(query.hasPrize)} onChange={(e) => update({ hasPrize: e.target.checked ? 'true' : null })} /> Has prizes</label>}
+        <label className="check"><input type="checkbox" checked={Boolean(query.hideIneligible)} onChange={(e) => update({ hideIneligible: e.target.checked ? 'true' : null })} /> Hide ones I’m likely not eligible for</label>
         <label className="check"><input type="checkbox" checked={Boolean(query.verifiedOnly)} onChange={(e) => update({ verifiedOnly: e.target.checked ? 'true' : null })} /> Verified only</label>
         <label className="check"><input type="checkbox" checked={Boolean(query.campusOnly)} onChange={(e) => update({ campusOnly: e.target.checked ? 'true' : null })} /> My campus only</label>
         <label className="check"><input type="checkbox" checked={Boolean(query.includeClosed)} onChange={(e) => update({ includeClosed: e.target.checked ? 'true' : null })} /> Include closed listings</label>
@@ -230,6 +247,45 @@ export function Discover() {
           <button className="btn grow" onClick={() => setFiltersOpen(false)}>Show results</button>
         </div>
       </Sheet>
+      <SaveSearchSheet open={saveOpen} onClose={() => setSaveOpen(false)} params={searchParamsToSave(params) ?? {}} suggestedName={suggestName(params)} />
     </div>
+  );
+}
+
+const SAVED_KEYS = ['q', 'type', 'workMode', 'location', 'within', 'hasPrize', 'verifiedOnly', 'campusOnly', 'includeClosed', 'sort', 'minAmount', 'hideIneligible'];
+/** The current search and filters (the same URL parameters the server accepts), or null if there's nothing to save. */
+export function searchParamsToSave(params: URLSearchParams): Record<string, string> | null {
+  const out = Object.fromEntries(SAVED_KEYS.filter((k) => params.get(k)).map((k) => [k, params.get(k)!]));
+  return Object.keys(out).length ? out : null;
+}
+function suggestName(params: URLSearchParams) {
+  const parts = [params.get('q'), params.get('type') && CHIP_LABEL[params.get('type')!], params.get('location')].filter(Boolean);
+  return (parts.join(' · ') || 'My search').slice(0, 80);
+}
+const amountLabel = (type?: string) => (type === 'internship' || type === 'job' ? 'Stipend or pay at least' : 'Award or stipend at least');
+/** Values are rupees per year (monthly stipends count x12 on the server). */
+function amountOptions(type?: string): [string, string][] {
+  if (type === 'internship' || type === 'job') return [['60000', '₹5,000 a month'], ['120000', '₹10,000 a month'], ['240000', '₹20,000 a month'], ['480000', '₹40,000 a month']];
+  return [['10000', '₹10,000 a year'], ['25000', '₹25,000 a year'], ['50000', '₹50,000 a year'], ['100000', '₹1,00,000 a year']];
+}
+
+function SaveSearchSheet({ open, onClose, params, suggestedName }: { open: boolean; onClose: () => void; params: Record<string, string>; suggestedName: string }) {
+  const toast = useToast();
+  const [name, setName] = useState(suggestedName);
+  const [alerts, setAlerts] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { if (open) { setName(suggestedName); setErr(null); } }, [open, suggestedName]);
+  return (
+    <Sheet open={open} onClose={onClose} title="Save this search">
+      <Field label="Name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></Field>
+      <label className="check"><input type="checkbox" checked={alerts} onChange={(e) => setAlerts(e.target.checked)} /> Email me new results (at most once a day)</label>
+      <p className="tiny faint">Alerts go to your confirmed email. Change or delete saved searches any time in Find ▸ Saved searches.</p>
+      {err && <div className="notice coral" role="alert">{err}</div>}
+      <button className="btn block" style={{ marginTop: 12 }} disabled={busy || !name.trim()} onClick={async () => {
+        setBusy(true); setErr(null);
+        try { await api.saveSearch({ name: name.trim(), params, alerts }); toast('Search saved'); onClose(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+      }}>{busy ? 'Saving…' : 'Save search'}</button>
+    </Sheet>
   );
 }
