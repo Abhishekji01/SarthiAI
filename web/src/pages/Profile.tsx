@@ -69,6 +69,7 @@ export function ProfilePage() {
           <li><Link to="/saved" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconBookmark size={20} /> <span className="grow">Saved opportunities</span> ›</Link></li>
           <li><Link to="/drafts" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconDoc size={20} /> <span className="grow">Drafts</span> ›</Link></li>
           <li><Link to="/searches" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconSearch size={20} /> <span className="grow">Saved searches</span> ›</Link></li>
+          <li><Link to="/documents" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconShield size={20} /> <span className="grow">Your documents</span> ›</Link></li>
           {isAdmin && <li><Link to="/admin" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconMegaphone size={20} /> <span className="grow">Campus admin</span> ›</Link></li>}
           <li><button className="row" style={{ padding: '14px 0', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setPrivacyOpen(true)}><IconShield size={20} /> <span className="grow" style={{ textAlign: 'left' }}>Privacy & data</span> ›</button></li>
           {serverOverrideAllowed && <li><button className="row" style={{ padding: '14px 0', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setDevOpen(true)}><IconSettings size={20} /> <span className="grow" style={{ textAlign: 'left' }}>Developer · server</span> ›</button></li>}
@@ -118,6 +119,7 @@ export function ProfilePage() {
           <li>Sarthi (AI) sees your first name, education, skills, interests, goals and projects only when you use an AI feature.</li>
           <li>College admins see only aggregate counts (hidden below 3), never individual students.</li>
           <li>Opening an official link never changes your application status.</li>
+          <li>Files in “Your documents” are stored privately in SarthiAI’s database. Only you can list or download them (links expire after 5 minutes); colleges and the AI never see them.</li>
           <li>Your Yes/No answers in “What am I missing?” are saved per listing so checks and rankings remember them. You can clear them below or on each listing.</li>
           <li>Deleting your account permanently removes your profile, saved items, applications, roadmap, drafts and saved answers.</li>
         </ul>

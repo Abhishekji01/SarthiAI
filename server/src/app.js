@@ -23,6 +23,7 @@ import { isAppRoute, looksLikeFile, opportunityMeta, robotsTxt, sitemapXml, with
 import publicRoutes, { findPublicOpportunity, publicFilter } from './routes/public.js';
 import internalRoutes from './routes/internal.js';
 import searchRoutes from './routes/searches.js';
+import documentRoutes from './routes/documents.js';
 import { Opportunity } from './models/Opportunity.js';
 import mongoose from 'mongoose';
 
@@ -81,6 +82,7 @@ export function createApp() {
   app.use('/api/public', publicRoutes);
   app.use('/api/internal', internalRoutes);
   app.use('/api/searches', searchRoutes);
+  app.use('/api/documents', documentRoutes);
 
   if (serveWeb) {
     // Single deployment: the same server hosts the web app (PWA) and the API.

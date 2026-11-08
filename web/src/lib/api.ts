@@ -1,7 +1,7 @@
 import { isNative, storage } from './platform';
 import type {
   AdminMetrics, Announcement, Application, ChatReply, College, DeadlineItem, Draft, DraftKind, EligibilityResult, GapPlan,
-  NextMove, OpenSummary, Opportunity, PageMeta, Profile, Resource, Roadmap, SavedSearch, User,
+  ChecklistItem, DocumentVault, NextMove, OpenSummary, Opportunity, PageMeta, Profile, Resource, Roadmap, SavedSearch, User, VaultDocument,
 } from './types';
 
 import { buildFlags, resolveBaseUrl, shouldAttachToken, trimUrl } from './serverConfig';
@@ -70,6 +70,11 @@ export async function probeServer(url: string) {
 export async function setToken(t: string | null) {
   token = t;
   await storage.set(TOKEN_KEY, t);
+}
+
+/** Session headers for requests made outside request() (files). */
+function authHeaders(): Record<string, string> {
+  return { ...(usesCookieSession() ? { 'X-Sarthi-Client': 'web' } : {}), ...(token && shouldAttachToken(baseUrl, DEFAULT_SERVER_URL) ? { Authorization: `Bearer ${token}` } : {}) };
 }
 
 export class ApiError extends Error {
@@ -156,10 +161,7 @@ export const api = {
   unwatchDates: (id: string) => del<{ watchingDates: boolean }>(`/opportunities/${id}/watch`),
   /** The deadline as an .ics calendar file (text). */
   calendarIcs: async (id: string) => {
-    const res = await fetch(`${baseUrl}/api/opportunities/${id}/calendar.ics`, {
-      headers: { ...(usesCookieSession() ? { 'X-Sarthi-Client': 'web' } : {}), ...(token && shouldAttachToken(baseUrl, DEFAULT_SERVER_URL) ? { Authorization: `Bearer ${token}` } : {}) },
-      credentials: usesCookieSession() ? 'same-origin' : 'omit',
-    });
+    const res = await fetch(`${baseUrl}/api/opportunities/${id}/calendar.ics`, { headers: authHeaders(), credentials: usesCookieSession() ? 'same-origin' : 'omit' });
     if (!res.ok) throw new ApiError(res.status, `HTTP_${res.status}`, 'Could not create the calendar file.');
     return res.text();
   },
@@ -194,6 +196,20 @@ export const api = {
   draftEmail: (b: { opportunityId: string; tone?: string; recipientName?: string; extraContext?: string }) => post<Draft>('/ai/draft-email', b),
   generateResume: (b: { kind: 'resume' | 'cover_letter' | 'resume_summary'; opportunityId?: string | null; extraContext?: string }) => post<Draft>('/ai/resume', b),
   explainMatch: (id: string) => post<{ explanation: string; nextSteps: string[] }>(`/ai/explain-match/${id}`),
+
+  documents: () => get<DocumentVault>('/documents'),
+  opportunityDocuments: (id: string) => get<ChecklistItem[]>(`/opportunities/${id}/documents`),
+  setDocumentHave: (kind: string, have: boolean) => request<{ have: string[] }>('PUT', '/documents/have', { body: { kind, have } }).then((r) => r.data),
+  documentLink: (id: string) => post<{ url: string; expiresInSeconds: number }>(`/documents/${id}/link`).then((r) => ({ ...r, url: `${baseUrl}${r.url}` })),
+  deleteDocument: (id: string) => del(`/documents/${id}`),
+  uploadDocument: async (kind: string, file: File) => {
+    const res = await fetch(`${baseUrl}/api/documents?${new URLSearchParams({ kind, name: file.name })}`, {
+      method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream', ...authHeaders() }, credentials: usesCookieSession() ? 'same-origin' : 'omit',
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new ApiError(res.status, json?.error?.code ?? `HTTP_${res.status}`, res.status === 413 ? 'That file is larger than 4 MB.' : json?.error?.message ?? 'Upload failed.');
+    return json.data as VaultDocument;
+  },
 
   searches: () => get<SavedSearch[]>('/searches'),
   saveSearch: (b: { name: string; params: Record<string, string>; alerts: boolean }) => post<SavedSearch>('/searches', b),

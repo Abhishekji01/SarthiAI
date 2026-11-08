@@ -6,6 +6,8 @@ import { EligibilityAnswer, answersFor } from '../models/EligibilityAnswer.js';
 import { badRequest } from '../utils/errors.js';
 import { DateWatch } from '../models/Notification.js';
 import { deadlineIcs } from '../notify/ics.js';
+import { checklistFor } from '../documents/kinds.js';
+import { Document } from '../models/Document.js';
 import { appUrl } from '../mail/mailer.js';
 import { inPersonPlaces, openSummary, searchOpportunities, getVisibleOpportunity, recommendedMatches, userStateFor, presentWithMatch, visibilityFilter } from '../services/opportunities.js';
 import { checkEligibility } from '../eligibility/engine.js';
@@ -37,6 +39,13 @@ opportunitiesRouter.get('/:id/calendar.ics', validate({ params: idParams }), asy
   const ics = deadlineIcs(opp, { url: `${appUrl()}/opportunity/${opp._id}` });
   if (!ics) throw badRequest('This listing has no published deadline yet.');
   res.type('text/calendar').set('Content-Disposition', `attachment; filename="sarthiai-deadline-${opp._id}.ics"`).send(ics);
+});
+
+/** Documents this listing needs (its own list, plus what its criteria usually need), with what the student has. */
+opportunitiesRouter.get('/:id/documents', validate({ params: idParams }), async (req, res) => {
+  const opp = await getVisibleOpportunity(req.user, req.valid.params.id);
+  const uploads = (await Document.find({ userId: req.user._id }).select('kind').lean()).map((d) => ({ id: String(d._id), kind: d.kind }));
+  send(res, checklistFor(opp, { have: req.user.docsHave ?? [], uploads }));
 });
 
 /** "Notify me when dates are announced" (listings without a deadline). Also saves the listing. */

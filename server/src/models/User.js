@@ -104,6 +104,8 @@ const userSchema = new Schema(
       emailDigest: { type: Boolean, default: true },
     },
     onboardingCompletedAt: Date,
+    // Document types the student says they have (document checklist). Private.
+    docsHave: [{ type: String, maxlength: 40 }],
   },
   { timestamps: true },
 );
@@ -128,6 +130,7 @@ export function serializeUser(user) {
     notificationPrefs: u.notificationPrefs,
     onboardingCompletedAt: u.onboardingCompletedAt ?? null,
     emailVerified: Boolean(u.emailVerifiedAt),
+    documentsHave: u.docsHave ?? [],
     createdAt: u.createdAt,
   };
 }

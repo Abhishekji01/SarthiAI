@@ -10,6 +10,7 @@ import { APPLICATION_STATUSES, type ApplicationStatus, type EligibilityResult, t
 import { DeadlineTag, FitMeter, VerificationTag } from '../components/OpportunityRow';
 import { SaveButton } from '../components/SaveButton';
 import { DeadlineActions } from '../components/DeadlineActions';
+import { DocumentChecklist } from '../components/DocumentChecklist';
 import { OfficialDescription, opportunityFacts, ShareButton, SourceSection } from '../components/OpportunityFacts';
 import { ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
 import { IconCheck, IconDoc, IconExternal, IconChat, IconX } from '../components/icons';
@@ -91,14 +92,7 @@ export function OpportunityDetail() {
         </section>
       )}
 
-      {o.requiredDocuments.length > 0 && (
-        <section className="section">
-          <h2>Documents you’ll need</h2>
-          <ul className="list card" style={{ padding: '2px 16px' }}>
-            {o.requiredDocuments.map((d) => <li key={d} className="row small" style={{ padding: '10px 0' }}><IconDoc size={18} style={{ color: 'var(--ink-3)', flexShrink: 0 }} /> {d}</li>)}
-          </ul>
-        </section>
-      )}
+      <DocumentChecklist opportunityId={o.id} />
 
       <section className="section">
         <h2>Get help</h2>

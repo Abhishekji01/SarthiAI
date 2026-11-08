@@ -227,3 +227,7 @@ export interface TypeSummary { open: number; likelyEligible: number; needDetails
 export interface OpenSummary { types: Record<OpportunityType, TypeSummary> }
 
 export interface SavedSearch { id: string; name: string; params: Record<string, string>; query: string; alerts: boolean; createdAt: string }
+
+export interface VaultDocument { id: string; kind: string; fileName: string; contentType: string; size: number; createdAt: string }
+export interface DocumentVault { documents: VaultDocument[]; have: string[]; usage: { files: number; bytes: number; maxFiles: number; maxFileBytes: number; maxTotalBytes: number } }
+export interface ChecklistItem { label: string; kind: string | null; source: 'listing' | 'criterion'; because?: string; storable: boolean; have: boolean; uploads: string[] }
