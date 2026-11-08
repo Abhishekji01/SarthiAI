@@ -385,6 +385,7 @@ html:has(.no-nav .bottom-bar) { scroll-padding-bottom: calc(var(--footer-h) + va
 .strength-strong i { background: var(--jade); }
 /* Verify-email banner */
 .banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 auto 12px; max-width: 760px; }
+.banner .grow { min-width: 0; flex-basis: 12rem; overflow-wrap: anywhere; }
 
 /* Tracker board (F8): columns scroll sideways on phones */
 .board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr); gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 12px; scroll-snap-type: x proximity; }
