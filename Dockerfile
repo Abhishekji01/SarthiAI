@@ -4,6 +4,7 @@ WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web/ ./
+COPY shared/ /app/shared/
 ARG VITE_API_BASE_URL=
 RUN npm run build
 
@@ -17,6 +18,7 @@ RUN python3 -m venv ingest/.venv && ingest/.venv/bin/pip install --no-cache-dir 
 COPY server/package.json server/package-lock.json server/
 RUN cd server && npm ci --omit=dev
 COPY server/ server/
+COPY shared/ shared/
 COPY ingest/ ingest/
 COPY --from=web /app/web/dist web/dist
 WORKDIR /app/server

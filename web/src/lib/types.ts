@@ -62,13 +62,15 @@ export interface Opportunity {
   status: 'draft' | 'published' | 'archived';
   updatedAt: string;
   match?: Match;
+  watchingDates?: boolean;
+  createdAt?: string;
   isSaved?: boolean;
   tracked?: { id: string; status: ApplicationStatus; archived: boolean } | null;
   tier?: 'recommended' | 'possible';
   searchMatch?: { relevance: number; matchedTerms: string[]; approximate: boolean };
 }
 
-export interface PageMeta { page: number; limit: number; total: number; totalPages: number; nearby?: { places: string[]; count: number }; search?: { relaxed: boolean; terms: string[]; closedMatches?: number; hiddenMentions?: number } }
+export interface PageMeta { page: number; limit: number; total: number; totalPages: number; excludedLikelyIneligible?: number; nearby?: { places: string[]; count: number }; search?: { relaxed: boolean; terms: string[]; closedMatches?: number; hiddenMentions?: number } }
 
 export interface Criterion {
   key: string; kind: string; requirement: string; mandatory: boolean; studentValue: string | null;
@@ -86,6 +88,8 @@ export interface EligibilityResult {
 }
 
 export interface Project { _id?: string; title: string; description?: string; skills?: string[]; url?: string }
+export interface Experience { role: string; organization: string; description?: string; startDate?: string | null; endDate?: string | null }
+export interface ResumeSuggestions { skills: string[]; projects: Project[]; experience: Experience[] }
 export interface Profile {
   collegeId: string | null;
   collegeName?: string;
@@ -100,11 +104,18 @@ export interface Profile {
   careerGoal?: string;
   headline?: string;
   projects?: Project[];
+  experience?: Experience[];
   achievements?: string[];
   preferredLocations?: string[];
   workModes?: ('remote' | 'hybrid' | 'onsite')[];
   homeState?: string;
   annualFamilyIncomeINR?: number;
+  gender?: 'female' | 'male' | 'other';
+  socialCategory?: 'general' | 'obc' | 'sc' | 'st' | 'ews';
+  disability?: boolean;
+  minority?: boolean;
+  parentService?: 'none' | 'capf' | 'railways' | 'defence' | 'state_police';
+  firstGeneration?: boolean;
   links?: { github?: string; linkedin?: string; portfolio?: string };
 }
 export interface User {
@@ -114,8 +125,9 @@ export interface User {
   role: 'student' | 'college_admin' | 'platform_admin';
   adminCollegeIds: string[];
   profile: Profile;
-  notificationPrefs: { deadlineReminders: boolean; reminderDaysBefore: number; campusAnnouncements: boolean };
+  notificationPrefs: { deadlineReminders: boolean; reminderDaysBefore: number; campusAnnouncements: boolean; emailDeadlines?: boolean; emailDigest?: boolean };
   onboardingCompletedAt: string | null;
+  emailVerified?: boolean;
   createdAt: string;
 }
 
@@ -212,3 +224,14 @@ export interface GapPlan {
   quickWins: { field: string; label: string; count: number; examples: PlanOpportunity[] }[];
   skills: PlanSkill[]; experience: PlanOpportunity[]; steps: PlanStep[];
 }
+
+/** GET /opportunities/summary: open listings per type (Find's default filter) with the eligibility split. */
+export interface TypeSummary { open: number; likelyEligible: number; needDetails: number; likelyIneligible: number; closingIn30Days: number }
+export interface OpenSummary { types: Record<OpportunityType, TypeSummary> }
+
+export interface CollegeRequest { id: string; name: string; city: string | null; state: string | null; collegeId: string; students: number; status: 'pending' | 'approved' | 'merged' | 'rejected'; mergedInto: string | null; createdAt: string }
+export interface SavedSearch { id: string; name: string; params: Record<string, string>; query: string; alerts: boolean; createdAt: string }
+
+export interface VaultDocument { id: string; kind: string; fileName: string; contentType: string; size: number; createdAt: string }
+export interface DocumentVault { documents: VaultDocument[]; have: string[]; usage: { files: number; bytes: number; maxFiles: number; maxFileBytes: number; maxTotalBytes: number } }
+export interface ChecklistItem { label: string; kind: string | null; source: 'listing' | 'criterion'; because?: string; storable: boolean; have: boolean; uploads: string[] }

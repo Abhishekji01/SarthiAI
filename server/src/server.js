@@ -19,11 +19,16 @@ export async function start({ mongoUri = env.MONGODB_URI, port = env.PORT } = {}
     ? startDailyRefresh({ hourIST: env.REFRESH_HOUR_IST, onStartup: env.REFRESH_ON_START === 'true' })
     : () => {};
 
+  // Reminder / digest emails: hourly while the server runs (when email is configured).
+  const jobsOn = (env.ENABLE_NOTIFICATION_JOBS ?? (env.NODE_ENV === 'production' && env.RESEND_API_KEY ? 'true' : 'false')) === 'true';
+  const stopJobs = jobsOn ? (await import('./notify/jobs.js')).startNotificationJobs() : () => {};
+
   let shuttingDown = false;
   const shutdown = async (signal) => {
     if (shuttingDown) return;
     shuttingDown = true;
     stopRefresh();
+    stopJobs();
     logger.info('Shutting down', { signal });
     server.close(async () => {
       await disconnectDatabase().catch(() => {});

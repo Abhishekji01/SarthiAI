@@ -23,7 +23,7 @@ from typing import Callable
 
 from bs4 import BeautifulSoup
 
-from common import Blocked, Fetcher, clean, slug
+from common import Blocked, Fetcher, clean, slug, clip
 
 SOURCE_ID = "hack"
 MAX_PER_PLATFORM = 60
@@ -89,7 +89,7 @@ def record(*, platform: str, key: str, title: str, organizer: str, url: str, kin
         "title": clean(title)[:200],
         "organization": (clean(organizer) or platform.title())[:160],
         "opportunityType": kind,
-        "officialDescription": (description[:3500] + (f"\n\nWhen: {when}" if when else "")).strip() or None,
+        "officialDescription": (clip(description, 3500) + (f"\n\nWhen: {when}" if when else "")).strip() or None,
         "sourceUrl": url,
         "applicationUrl": apply_url or url,
         "additionalSources": [],

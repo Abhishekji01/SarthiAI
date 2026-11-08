@@ -4,8 +4,10 @@ import { useAsync } from '../lib/useAsync';
 import { OpportunityRow } from '../components/OpportunityRow';
 import { Empty, ErrorState, Skeleton, TopBar } from '../components/ui';
 import { IconBookmark } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 export function Saved() {
+  usePageTitle('Saved');
   const { data, error, loading, reload } = useAsync(() => api.saved(), []);
   return (
     <div className="page">

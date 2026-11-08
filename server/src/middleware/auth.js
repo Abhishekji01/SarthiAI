@@ -1,7 +1,12 @@
 import mongoose from 'mongoose';
 import { User } from '../models/User.js';
+import { Session } from '../models/Session.js';
 import { verifyToken } from '../auth/tokens.js';
 import { forbidden, unauthorized } from '../utils/errors.js';
+import { csrfOk, readCookie, SESSION_COOKIE } from '../auth/session.js';
+import { env } from '../config/env.js';
+
+const allowedOrigins = () => env.CORS_ORIGINS.split(',').map((x) => x.trim()).filter(Boolean);
 
 /**
  * Authenticates the bearer token and loads the user. Identity always comes
@@ -9,8 +14,15 @@ import { forbidden, unauthorized } from '../utils/errors.js';
  */
 export async function requireAuth(req, _res, next) {
   const header = req.get('authorization') ?? '';
-  const [scheme, token] = header.split(' ');
-  if (scheme !== 'Bearer' || !token) throw unauthorized();
+  const [scheme, bearer] = header.split(' ');
+  let token = scheme === 'Bearer' && bearer ? bearer : null;
+  if (!token) {
+    // Web app: httpOnly session cookie, with CSRF checks on state-changing requests.
+    token = readCookie(req, SESSION_COOKIE);
+    if (token && !csrfOk(req, allowedOrigins())) throw forbidden('This request did not come from the SarthiAI app.');
+    if (token) req.sessionVia = 'cookie';
+  }
+  if (!token) throw unauthorized();
 
   let payload;
   try {
@@ -19,10 +31,18 @@ export async function requireAuth(req, _res, next) {
     throw unauthorized('Your session has expired. Please sign in again.');
   }
   if (!mongoose.isValidObjectId(payload.sub)) throw unauthorized();
-  const user = await User.findById(payload.sub);
+  const [user, session] = await Promise.all([
+    User.findById(payload.sub),
+    payload.sid && mongoose.isValidObjectId(payload.sid) ? Session.findById(payload.sid).lean() : null,
+  ]);
   if (!user || (user.tokenVersion ?? 0) !== payload.ver) {
     throw unauthorized('Your session has ended. Please sign in again.');
   }
+  // Tokens from this version carry a device session id; that device may have been signed out.
+  if (payload.sid && (!session || session.revokedAt || String(session.userId) !== String(user._id))) {
+    throw unauthorized('Your session has ended. Please sign in again.');
+  }
+  req.sessionId = payload.sid ?? null;
   req.user = user;
   next();
 }

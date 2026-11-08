@@ -3,7 +3,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
 /**
  * Android app shell. The UI is the same web app (web/dist) running in a
  * WebView; it talks to the SarthiAI API at VITE_API_BASE_URL (set at build
- * time) or the server URL chosen in Profile ▸ Developer.
+ * time). Builds made with VITE_DEV_SERVER_SETTING=1 also offer Profile ▸ Developer
+ * to pick another server (development only).
  *
  * For a local http:// API during development, build with CAP_ALLOW_HTTP=1.
  * Production builds should use an https:// API.

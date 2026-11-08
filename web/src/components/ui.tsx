@@ -1,6 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconBack, IconX } from './icons';
+import { ApiError } from '../lib/api';
+import { NetworkErrorActions } from './ServerSettings';
+import { currentLang, translate } from '../i18n';
 
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
@@ -107,36 +110,65 @@ export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => v
   return (
     <div className="notice coral" role="alert">
       <div className="grow">{error.message}</div>
-      {onRetry && <button className="btn small danger" onClick={onRetry}>Retry</button>}
+      {error instanceof ApiError && error.code === 'NETWORK'
+        ? <NetworkErrorActions onRetry={onRetry} />
+        : onRetry && <button className="btn small danger" onClick={onRetry}>{translate(currentLang(), 'common.retry')}</button>}
     </div>
   );
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
+/**
+ * Label + control + optional hint and inline error. The hint and error are linked
+ * with aria-describedby (not part of the label), and an error sets aria-invalid.
+ */
+export function Field({ label, hint, error, children }: { label: string; hint?: ReactNode; error?: string | null; children: ReactNode }) {
+  const auto = useId();
+  if (!isValidElement(children)) {
+    return (
+      <label className="field">
+        <span>{label}</span>
+        {children}
+        {error && <div className="field-error" role="alert">{error}</div>}
+        {hint && <div className="hint">{hint}</div>}
+      </label>
+    );
+  }
+  const el = children as ReactElement<Record<string, unknown>>;
+  const id = (el.props.id as string | undefined) ?? auto;
+  const describedBy = [error && `${id}-error`, hint && `${id}-hint`].filter(Boolean).join(' ') || undefined;
   return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-      {hint && <div className="hint">{hint}</div>}
-    </label>
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      {cloneElement(el, { id, 'aria-describedby': describedBy, ...(error ? { 'aria-invalid': true } : {}) })}
+      {error && <div id={`${id}-error`} className="field-error" role="alert">{error}</div>}
+      {hint && <div id={`${id}-hint`} className="hint">{hint}</div>}
+    </div>
   );
 }
 
 /** Chip-based editor for skills / interests / locations, with suggestions. */
-export function TokenEditor({ label, tokens, onChange, suggestions = [], placeholder, max = 40 }: {
-  label: string; tokens: string[]; onChange: (t: string[]) => void; suggestions?: string[]; placeholder?: string; max?: number;
+export function TokenEditor({ id, label, tokens, onChange, suggestions = [], placeholder, max = 40, maxLength = 60, error }: {
+  id?: string; label: string; tokens: string[]; onChange: (t: string[]) => void; suggestions?: string[]; placeholder?: string; max?: number; maxLength?: number; error?: string | null;
 }) {
+  const auto = useId();
+  const inputId = id ?? auto;
   const [text, setText] = useState('');
+  const [note, setNote] = useState<string | null>(null);
   const has = (t: string) => tokens.some((x) => x.toLowerCase() === t.toLowerCase());
   const add = (t: string) => {
-    const v = t.trim().replace(/,$/, '');
-    if (v && !has(v) && tokens.length < max) onChange([...tokens, v]);
+    const v = t.trim().replace(/,$/, '').trim();
+    setNote(null);
+    if (!v) return setText('');
+    if (v.length > maxLength) return setNote(`Keep each one under ${maxLength} characters.`);
+    if (tokens.length >= max) return setNote(`You can add up to ${max}. Remove one to add another.`);
+    if (!has(v)) onChange([...tokens, v]);
     setText('');
   };
   const remaining = suggestions.filter((s) => !has(s));
+  const message = error ?? note;
   return (
     <div className="field">
-      <span>{label}</span>
+      <label htmlFor={inputId}>{label}</label>
       {tokens.length > 0 && (
         <div className="chips" style={{ marginBottom: 8 }}>
           {tokens.map((t) => (
@@ -147,11 +179,13 @@ export function TokenEditor({ label, tokens, onChange, suggestions = [], placeho
         </div>
       )}
       <input
-        className="input" value={text} placeholder={placeholder ?? 'Type and press Enter'}
+        id={inputId} className="input" value={text} placeholder={placeholder ?? 'Type and press Enter'}
+        aria-invalid={message ? true : undefined} aria-describedby={message ? `${inputId}-error` : undefined}
         onChange={(e) => (e.target.value.endsWith(',') ? add(e.target.value) : setText(e.target.value))}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(text); } }}
         onBlur={() => text && add(text)}
       />
+      {message && <div id={`${inputId}-error`} className="field-error" role="alert">{message}</div>}
       {remaining.length > 0 && (
         <div className="chips" style={{ marginTop: 8 }}>
           {remaining.slice(0, 12).map((s) => <button type="button" key={s} className="chip" onClick={() => add(s)}>+ {s}</button>)}

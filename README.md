@@ -92,7 +92,17 @@ Tests:
 cd server
 npm test                                          # downloads a throwaway MongoDB
 MONGODB_TEST_URI=mongodb://127.0.0.1:27017 npm test   # or use an existing one
+
+cd ../web
+npm run lint                                      # type check
+npm test                                          # unit + component tests (Vitest, jsdom)
+npm run build && npm run e2e                      # end-to-end (Playwright, 390x844 + 1366x860; needs MongoDB at E2E_MONGODB_URI)
+SHOTS=/tmp/shots npx playwright test visual-tour  # optional screenshot tour, light + dark
+
+cd ../ingest && .venv/bin/python -m pytest -q tests
 ```
+
+What changed in the latest round of fixes and features, with migrations, settings and how to test each item: **[CHANGES.md](CHANGES.md)**.
 
 Optional campus admin for testing:
 
@@ -112,7 +122,7 @@ VITE_API_BASE_URL=https://your-server npm run android:sync   # builds web + copi
 npm run android:open                                          # opens Android Studio → Run
 ```
 
-For a local dev server, build with `CAP_ALLOW_HTTP=1` and use `http://10.0.2.2:4000` (the emulator's address for your computer). You can also change the server in the app under **Profile ▸ Developer · server**.
+For a local dev server, build with `CAP_ALLOW_HTTP=1 VITE_DEV_SERVER_SETTING=1` and use `http://10.0.2.2:4000` (the emulator's address for your computer). Only builds made with `VITE_DEV_SERVER_SETTING=1` (and `vite dev`) offer **Profile ▸ Developer · server**; production builds always use their own server.
 
 Release build: create a keystore, then **Build ▸ Generate Signed App Bundle** in Android Studio (or `./gradlew bundleRelease` with signing config) for the Play Store.
 

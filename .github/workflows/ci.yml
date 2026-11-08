@@ -38,11 +38,41 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - run: npm run lint
+      - run: npm test
       - run: npm run build
       - uses: actions/upload-artifact@v4
         with:
           name: sarthiai-web
           path: web/dist
+
+  e2e:
+    name: End-to-end (Playwright, mobile + desktop)
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports: ['27017:27017']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: server
+      - run: npm ci && npm run build
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npx playwright test
+        working-directory: web
+        env:
+          E2E_MONGODB_URI: mongodb://127.0.0.1:27017/sarthiai_e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: web/test-results
 
   android:
     name: Android APK (debug)
@@ -66,9 +96,11 @@ jobs:
       - run: npm ci
       # Set the repository variable SARTHI_API_URL (e.g. https://your-sarthiai-server) to bake in your API.
       # Without it the app points at http://10.0.2.2:4000 (a dev server on the emulator's host) and can be changed in-app.
+      # Without SARTHI_API_URL the debug APK needs a server picker (Profile ▸ Developer); with it, the picker is hidden.
       - run: npm run build
         env:
           VITE_API_BASE_URL: ${{ vars.SARTHI_API_URL }}
+          VITE_DEV_SERVER_SETTING: ${{ vars.SARTHI_API_URL == '' && '1' || '0' }}
       - run: npx cap sync android
         env:
           CAP_ALLOW_HTTP: ${{ vars.SARTHI_API_URL == '' && '1' || '0' }}

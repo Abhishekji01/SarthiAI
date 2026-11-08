@@ -1,14 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { requireAI } from './provider.js';
-import { profileForModel, opportunityForModel, UNTRUSTED_NOTICE, istDate } from './context.js';
+import { profileForModel, opportunityForModel, opportunityBrief, ELIGIBILITY_LABEL, PRIVATE_FIELDS_NOTICE, UNTRUSTED_NOTICE, istDate } from './context.js';
+import { DEADLINE_WINDOWS, deadlineWindowEnd } from '../utils/dates.js';
+import { containsCode, isOffTopic, resourcesFor, scopeReply } from './scope.js';
 import { buildEvidence, findUngroundedClaims } from './grounding.js';
 import { searchOpportunities, getVisibleOpportunity, recommendedMatches } from '../services/opportunities.js';
 import { getDeadlines, getNextMoves } from '../services/nextMoves.js';
-import { checkEligibility } from '../eligibility/engine.js';
+import { checkEligibility, eligibilityForModel } from '../eligibility/engine.js';
 import { computeAvailability, OPPORTUNITY_TYPES } from '../models/Opportunity.js';
 import { Roadmap } from '../models/Roadmap.js';
 import { Application } from '../models/Application.js';
+import { answersFor } from '../models/EligibilityAnswer.js';
 import { logger } from '../utils/logger.js';
 
 const MAX_STEPS = 6;
@@ -20,11 +23,14 @@ Rules you must always follow:
 2. Eligibility comes from the check_eligibility tool, which is deterministic. Explain its result; never override it, never call it official, and remind the student to confirm on the official source.
 3. You cannot save, track, submit, send, or change anything yourself. To suggest one of these, call a propose_* tool. The student must confirm it in the app. Never say an action was done — say you have prepared it for them to confirm.
 4. Never claim an application was submitted. Never ask for portal passwords, Aadhaar, or bank details.
-5. Do not infer sensitive personal attributes (gender, caste, disability, religion, income). If a criterion depends on one, say the student should check it themselves.
+5. Do not infer sensitive personal attributes (gender, caste, disability, religion, income). If a criterion depends on one, say the student should check it themselves. Income, home state and other private scholarship details are never shared with you (get_my_profile marks them private). If the student asks about them, say "That's kept private from me; eligibility checks use it automatically." Never say their profile does not list it, and never ask them to type it in the chat.
 6. ${UNTRUSTED_NOTICE}
 7. Be concise, warm, and practical. Use short paragraphs or brief lists. Mention when a listing is unverified, stale, closed, or has an unknown deadline. Refer to opportunities by their exact title.
 8. Today's date is provided below. Use it for "days left" calculations.
 9. Work step by step: for "what should I apply to" questions call get_recommendations (and search_opportunities for a specific field) before answering; for "am I eligible" call check_eligibility for each listing you discuss. Prefer calling tools in parallel when you need several.
+12. For any question about a time window — "this month", "this week", "upcoming", "closing soon", "is mahine", "is hafte" — call search_opportunities with deadline_window (plus type when the student names one, e.g. scholarships). It returns every matching listing sorted by deadline. Mention every result (group them if there are many), not just the first one; say which ones need the student to "confirm eligibility", and mention how many were left out as likely not eligible.
+13. If nothing matches, say so plainly without naming unrelated listings.
+14. Stay in scope: opportunities, eligibility, applications, career planning, interview preparation and learning paths. Do not write code, solve assignments or homework, or answer unrelated general questions. Decline those in one or two friendly sentences and offer an in-scope next step; for learning a skill, call find_learning_resources and point to what it returns. Never include code in a reply.
 10. When you state a deadline or an amount, copy it exactly from a tool result and name the listing it belongs to. If a value is "unknown", say it is unknown.
 11. Reply in the language the student writes in (English, Hindi or Hinglish are all fine).`;
 
@@ -34,19 +40,23 @@ const TOOLS = [
   { name: 'get_my_profile', description: "Read the signed-in student's SarthiAI profile (education, skills, interests, goals, projects).", parameters: { type: 'object', properties: {}, additionalProperties: false } },
   {
     name: 'search_opportunities',
-    description: 'Search verified and published opportunities visible to this student. Returns ranked results with match explanations.',
+    description: 'Search published opportunities visible to this student. Use deadline_window for "this month / this week / upcoming / closing soon" questions: it returns ALL listings closing in that window (up to 25), soonest deadline first, each labelled "likely eligible", "confirm eligibility" or "check the official source"; listings a required criterion rules out are left out and counted. Without a window, returns ranked results with match explanations.',
     parameters: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Keywords such as a skill, field, or organization' },
+        query: { type: 'string', description: 'Keywords such as a skill, field, or organization. Leave empty to list everything of a type or window.' },
         type: { type: 'string', enum: OPPORTUNITY_TYPES },
+        deadline_window: { type: 'string', enum: DEADLINE_WINDOWS, description: 'Only listings whose deadline falls between today and the end of this window (India time).' },
+        deadline_within_days: { type: 'integer', minimum: 1, maximum: 365, description: 'Alternative to deadline_window: deadline within this many days.' },
+        sort: { type: 'string', enum: ['relevance', 'deadline'] },
         include_closed: { type: 'boolean' },
-        limit: { type: 'integer', minimum: 1, maximum: 8 },
+        limit: { type: 'integer', minimum: 1, maximum: 25 },
       },
       additionalProperties: false,
     },
   },
   { name: 'get_recommendations', description: 'Get the best verified, currently open or upcoming opportunities for this student, excluding ones they are likely ineligible for.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
+  { name: 'find_learning_resources', description: 'Verified learning resources from the SarthiAI catalogue for a skill or topic (e.g. "python", "web security"). Use these instead of naming courses from memory.', parameters: { type: 'object', properties: { topic: { type: 'string', maxLength: 80 } }, required: ['topic'], additionalProperties: false } },
   { name: 'get_opportunity', description: 'Get full details of one opportunity by id.', parameters: { type: 'object', properties: { opportunity_id: { type: 'string' } }, required: ['opportunity_id'], additionalProperties: false } },
   { name: 'check_eligibility', description: 'Run the deterministic eligibility check for one opportunity against the student profile.', parameters: { type: 'object', properties: { opportunity_id: { type: 'string' } }, required: ['opportunity_id'], additionalProperties: false } },
   { name: 'get_my_deadlines', description: "List the student's upcoming deadlines and next actions from their tracker and saved items.", parameters: { type: 'object', properties: {}, additionalProperties: false } },
@@ -83,15 +93,9 @@ async function executeTool(name, rawArgs, ctx) {
 
   switch (name) {
     case 'get_my_profile':
-      return profileForModel(user);
-    case 'search_opportunities': {
-      const parsed = z.object({ query: z.string().max(120).optional(), type: z.enum(OPPORTUNITY_TYPES).optional(), include_closed: z.boolean().optional(), limit: z.number().int().min(1).max(8).optional() }).safeParse(args);
-      if (!parsed.success) return { error: 'Invalid search arguments.' };
-      const a = parsed.data;
-      const { items, meta } = await searchOpportunities(user, { q: a.query, type: a.type, includeClosed: a.include_closed ?? false, sort: 'relevance', page: 1, limit: a.limit ?? 5 }, now);
-      items.forEach(remember);
-      return { total: meta.total, relaxedSearch: Boolean(meta.search?.relaxed), results: items.map((o) => ({ ...opportunityForModel(o), matchScore: o.match.score, eligibility: o.match.eligibilityOverall, whyItMatches: o.match.factors.map((f) => `${f.positive ? '+' : '-'} ${f.detail}`) })) };
-    }
+      return { ...profileForModel(user), privateFields: PRIVATE_FIELDS_NOTICE };
+    case 'search_opportunities':
+      return searchTool(args, ctx, remember);
     case 'get_recommendations': {
       const { items, excludedIneligible } = await recommendedMatches(user, { limit: 6, now, tier: 'all', possibleLimit: 4 });
       items.forEach(remember);
@@ -118,11 +122,19 @@ async function executeTool(name, rawArgs, ctx) {
       try {
         const o = await getVisibleOpportunity(user, parsed.data.opportunity_id);
         remember(o);
-        const r = checkEligibility(o, user.profile, { now });
-        return { opportunity: o.title, overall: r.overall, criteria: r.criteria.map((c) => ({ requirement: c.requirement, status: c.status, mandatory: c.mandatory, explanation: c.explanation, nextStep: c.nextStep })), caveats: r.caveats.map((c) => c.message), disclaimer: r.disclaimer };
+        const saved = (await answersFor(user._id, [o._id])).get(String(o._id)) ?? {};
+        const r = checkEligibility(o, user.profile, { now, declarations: saved });
+        // Private criteria (income, home state, category…) are redacted: the model never sees those details.
+        return { opportunity: o.title, ...eligibilityForModel(r), caveats: r.caveats.map((c) => c.message), disclaimer: r.disclaimer };
       } catch {
         return { error: 'Opportunity not found or not visible to this student.' };
       }
+    }
+    case 'find_learning_resources': {
+      const parsed = z.object({ topic: z.string().min(1).max(80) }).safeParse(args);
+      if (!parsed.success) return { error: 'Give a topic.' };
+      const found = await resourcesFor(parsed.data.topic, 5);
+      return { resources: found.map((r) => ({ title: r.title, provider: r.provider, cost: r.cost, url: r.url, skills: r.skills })), note: found.length ? 'Verified links from the SarthiAI catalogue.' : 'No verified resources for this topic yet.' };
     }
     case 'get_my_deadlines':
       return { deadlines: (await getDeadlines(user, { now })).map((d) => ({ ...d, date: istDate(d.date) })) };
@@ -166,6 +178,57 @@ async function executeTool(name, rawArgs, ctx) {
   }
 }
 
+const searchArgs = z.object({
+  query: z.string().max(120).optional(),
+  type: z.enum(OPPORTUNITY_TYPES).optional(),
+  deadline_window: z.enum(DEADLINE_WINDOWS).optional(),
+  deadline_within_days: z.number().int().min(1).max(365).optional(),
+  sort: z.enum(['relevance', 'deadline']).optional(),
+  include_closed: z.boolean().optional(),
+  limit: z.number().int().min(1).max(25).optional(),
+});
+
+/** search_opportunities. Exported for evaluation tests. */
+export async function searchTool(args, ctx, remember = () => {}) {
+  const parsed = searchArgs.safeParse(args);
+  if (!parsed.success) return { error: 'Invalid search arguments.' };
+  const a = parsed.data;
+  const { user, now } = ctx;
+  const windowed = Boolean(a.deadline_window || a.deadline_within_days);
+  const { items, meta } = await searchOpportunities(user, {
+    q: a.query || undefined,
+    type: a.type,
+    includeClosed: windowed ? false : (a.include_closed ?? false),
+    deadlineBefore: a.deadline_window ? deadlineWindowEnd(a.deadline_window, now) : undefined,
+    deadlineWithinDays: a.deadline_window ? undefined : a.deadline_within_days,
+    excludeLikelyIneligible: windowed,
+    sort: a.sort ?? (windowed ? 'deadline' : 'relevance'),
+    page: 1,
+    limit: a.limit ?? (windowed ? 20 : 5),
+  }, now);
+  items.forEach(remember);
+  const long = items.length > 8;
+  return {
+    total: meta.total,
+    returned: items.length,
+    ...(windowed ? { window: a.deadline_window ?? `next ${a.deadline_within_days} days`, windowEnds: a.deadline_window ? istDate(deadlineWindowEnd(a.deadline_window, now)) : null, excludedBecauseLikelyNotEligible: meta.excludedLikelyIneligible ?? 0 } : {}),
+    relaxedSearch: Boolean(meta.search?.relaxed),
+    results: items.map((o) => ({
+      ...(long ? opportunityBrief(o) : opportunityForModel(o)),
+      eligibility: ELIGIBILITY_LABEL[o.match.eligibilityOverall] ?? o.match.eligibilityOverall,
+      ...(long ? {} : { matchScore: o.match.score, whyItMatches: o.match.factors.map((f) => `${f.positive ? '+' : '-'} ${f.detail}`) }),
+    })),
+  };
+}
+
+const normTitle = (s) => String(s ?? '').toLowerCase().replace(/[‘’“”"'`]/g, '').replace(/[–—-]/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** Citations only for listings the reply actually names (by id or title). */
+export function citationsMentioned(text, seen) {
+  const body = normTitle(text);
+  return seen.filter((c) => text.includes(c.opportunityId) || (normTitle(c.title).length >= 4 && body.includes(normTitle(c.title))));
+}
+
 /** Short profile snapshot so the model does not need a tool call for basics. */
 function profileSnapshot(user) {
   const p = profileForModel(user);
@@ -182,6 +245,9 @@ function profileSnapshot(user) {
 
 export async function runSaathi(user, { messages, contextOpportunityId }, { now = new Date() } = {}) {
   const ai = requireAI();
+  const last = messages.filter((m) => m.role === 'user').at(-1)?.content ?? '';
+  // Coding and homework requests are redirected without spending a model call.
+  if (isOffTopic(last)) return { ...(await scopeOnlyReply(last)), model: ai.model };
   const ctx = { user, now, seen: new Map(), proposals: [], toolsUsed: [] };
   const today = istDate(now);
 
@@ -254,14 +320,22 @@ export async function runSaathi(user, { messages, contextOpportunityId }, { now 
     }
   }
 
-  const seen = [...ctx.seen.values()];
-  const citations = seen.filter((c) => text.includes(c.title) || text.includes(c.opportunityId));
+  // Belt and braces: a reply with code in it is replaced by the scope message.
+  if (containsCode(text)) return { ...(await scopeOnlyReply(last)), toolsUsed: [...new Set(ctx.toolsUsed)], model: ai.model };
+
+  // Only listings the reply names; "I couldn't find X" gets no citations.
+  const citations = citationsMentioned(text, [...ctx.seen.values()]);
   return {
     reply: text.trim(),
-    citations: citations.length ? citations : seen.slice(0, 3),
+    citations,
     proposedActions: ctx.proposals,
     toolsUsed: [...new Set(ctx.toolsUsed)],
     grounding: { status: groundingStatus, unverifiedClaims: ungrounded.map((c) => c.text) },
     model: ai.model,
   };
+}
+
+async function scopeOnlyReply(message) {
+  const { reply } = await scopeReply(message);
+  return { reply, citations: [], proposedActions: [], toolsUsed: ['scope_guard'], grounding: { status: 'verified', unverifiedClaims: [] } };
 }

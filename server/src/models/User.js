@@ -52,6 +52,13 @@ const profileSchema = new Schema(
     workModes: [{ type: String, enum: WORK_MODES }],
     homeState: { type: String, trim: true, maxlength: 60 },
     annualFamilyIncomeINR: { type: Number, min: 0 },
+    // More private scholarship details (all optional, never inferred, never sent to the AI or shown to colleges).
+    gender: { type: String, enum: ['female', 'male', 'other'] },
+    socialCategory: { type: String, enum: ['general', 'obc', 'sc', 'st', 'ews'] },
+    disability: { type: Boolean },
+    minority: { type: Boolean },
+    parentService: { type: String, enum: ['none', 'capf', 'railways', 'defence', 'state_police'] },
+    firstGeneration: { type: Boolean },
     links: {
       github: { type: String, trim: true, maxlength: 300 },
       linkedin: { type: String, trim: true, maxlength: 300 },
@@ -72,18 +79,41 @@ const userSchema = new Schema(
     adminCollegeIds: [{ type: Schema.Types.ObjectId, ref: 'College' }],
     // Incremented on logout / password change to revoke all issued tokens.
     tokenVersion: { type: Number, default: 0 },
+    // Set when the student opens the emailed confirmation link (or signs in with Google).
+    emailVerifiedAt: { type: Date, default: null },
+    emailVerification: {
+      type: new Schema({ tokenHash: String, expiresAt: Date }, { _id: false }),
+      default: undefined,
+      select: false,
+    },
+    // Google account id, when the student signs in with Google.
+    googleSub: { type: String, default: undefined, select: false },
+    // Single-use password reset: only a SHA-256 hash of the emailed token is stored.
+    passwordReset: {
+      type: new Schema({ tokenHash: String, expiresAt: Date }, { _id: false }),
+      default: undefined,
+      select: false,
+    },
     profile: { type: profileSchema, default: () => ({}) },
     notificationPrefs: {
       deadlineReminders: { type: Boolean, default: true },
       reminderDaysBefore: { type: Number, min: 0, max: 30, default: 3 },
       campusAnnouncements: { type: Boolean, default: true },
+      // Emails (sent only once the address is verified).
+      emailDeadlines: { type: Boolean, default: true },
+      emailDigest: { type: Boolean, default: true },
     },
     onboardingCompletedAt: Date,
+    // Document types the student says they have (document checklist). Private.
+    docsHave: [{ type: String, maxlength: 40 }],
   },
   { timestamps: true },
 );
 
 userSchema.index({ 'profile.collegeId': 1 });
+userSchema.index({ 'passwordReset.tokenHash': 1 }, { sparse: true });
+userSchema.index({ 'emailVerification.tokenHash': 1 }, { sparse: true });
+userSchema.index({ googleSub: 1 }, { unique: true, sparse: true });
 
 export const User = mongoose.model('User', userSchema);
 
@@ -99,6 +129,8 @@ export function serializeUser(user) {
     profile: { ...u.profile, collegeId: u.profile?.collegeId ? String(u.profile.collegeId) : null },
     notificationPrefs: u.notificationPrefs,
     onboardingCompletedAt: u.onboardingCompletedAt ?? null,
+    emailVerified: Boolean(u.emailVerifiedAt),
+    documentsHave: u.docsHave ?? [],
     createdAt: u.createdAt,
   };
 }

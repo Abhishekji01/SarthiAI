@@ -1,0 +1,12 @@
+export declare const LIMITS: Readonly<{ cgpaMin: number; cgpaMax: number; cgpaDecimals: number; tagMaxLength: number; tagMaxItems: number; incomeMax: number; careerGoalMax: number; nameMax: number }>;
+export declare const DEGREE_YEARS: Readonly<Record<string, number>>;
+export declare const MAX_PROGRAMME_YEARS: number;
+export declare function degreeKey(d: string | null | undefined): string;
+export declare function academicYearEnd(now?: Date): number;
+export declare function graduationYearRange(degree: string | null | undefined, currentYear: number | string | null | undefined, now?: Date): { min: number; max: number };
+export declare function cgpaError(raw: string | number | null | undefined): string | null;
+export declare function cgpaNumberError(n: number | null | undefined): string | null;
+export declare function incomeDigits(raw: string | null | undefined): string;
+export declare function incomeError(raw: string | null | undefined): string | null;
+export declare function graduationYearError(gradYear: number | string | null | undefined, degree: string | null | undefined, currentYear: number | string | null | undefined, now?: Date): string | null;
+export declare function tagListError(list: string[] | null | undefined, label: string): string | null;

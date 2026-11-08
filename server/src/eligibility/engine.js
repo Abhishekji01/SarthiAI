@@ -1,4 +1,7 @@
-import { computeAvailability, isStale } from '../models/Opportunity.js';
+// Shared with the profile forms (shared/profileRules.js).
+import { DEGREE_YEARS } from '../../../shared/profileRules.js';
+import { computeAvailability, isStale, PRIVATE_RULE_KINDS } from '../models/Opportunity.js';
+import { evaluateAudience, GROUPS } from './audience.js';
 import { compareSkills, canonicalState, ALL_INDIA } from '../matching/taxonomy.js';
 
 /**
@@ -54,7 +57,6 @@ export function degreeMatches(values, degree) {
 }
 
 /** Typical programme length, used only to estimate year of study when it is missing. */
-const DEGREE_YEARS = { btech: 4, be: 4, barch: 5, mbbs: 5, bds: 5, llb: 5, bpharm: 4, bdes: 4, integrated: 5, bsc: 3, bs: 4, bca: 3, bcom: 3, ba: 3, bba: 3, mtech: 2, me: 2, msc: 2, ms: 2, mca: 2, mba: 2, ma: 2, mcom: 2, diploma: 3 };
 
 /**
  * Academic year in India runs roughly July–June. A student graduating in the
@@ -108,8 +110,9 @@ const BRANCH_PARENT = { aiml: 'cse', datascience: 'cse', cybersecurity: 'cse', i
 const fmtINR = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
 const list = (arr) => arr.join(', ');
 
-function result(rule, status, studentValue, explanation, nextStep) {
+function result(rule, status, studentValue, explanation, nextStep, { isPrivate = PRIVATE_RULE_KINDS.has(rule.kind) } = {}) {
   return {
+    private: isPrivate,
     key: rule.key,
     kind: rule.kind,
     requirement: rule.label,
@@ -200,7 +203,7 @@ function evaluateRule(rule, profile, declarations, now = new Date()) {
       if (!p.homeState) return result(rule, 'unknown', null, `Restricted to: ${list(values)}. Your home state is not in your profile.`, 'Add your home state in Profile (optional).');
       const ok = values.some((v) => ALL_INDIA.has(norm(v))) || values.map(canonicalState).includes(canonicalState(p.homeState));
       return ok
-        ? result(rule, 'met', p.homeState, `${p.homeState} is an eligible state.`)
+        ? result(rule, 'met', p.homeState, `Your home state (${p.homeState}) is eligible.`)
         : result(rule, 'unmet', p.homeState, `Restricted to: ${list(values)}.`);
     }
     case 'skills_all':
@@ -221,12 +224,78 @@ function evaluateRule(rule, profile, declarations, now = new Date()) {
       const answer = declarations?.[rule.key];
       if (answer === true) return result(rule, 'met', null, 'You confirmed this criterion. SarthiAI cannot verify it for you.');
       if (answer === false) return result(rule, 'unmet', null, 'You indicated you do not meet this criterion.');
+      // "Who is this scheme for" rules: compare with the student's private details when they shared them.
+      if (rule.restrictsAudience || rule.key === 'target_group' || rule.key === 'audience') {
+        const a = evaluateAudience(`${rule.label} ${rule.sourceExcerpt ?? ''}`, p);
+        if (a) return audienceResult(rule, a);
+      }
       return result(rule, 'unknown', null, rule.note ?? 'SarthiAI cannot verify this from your profile.',
         'Read this criterion on the official source and confirm it yourself.');
     }
+    case 'gender_in':
+      return privateChoice(rule, p.gender, values, 'gender');
+    case 'category_in':
+      return privateChoice(rule, p.socialCategory, values, 'category');
+    case 'parent_service_in':
+      return privateChoice(rule, p.parentService, values, 'parent or guardian’s service');
+    case 'disability_required':
+      return privateFlag(rule, p.disability, 'a disability (PwD)');
+    case 'minority_required':
+      return privateFlag(rule, p.minority, 'minority status');
+    case 'first_generation_required':
+      return privateFlag(rule, p.firstGeneration, 'first-generation learner status');
     default:
       return result(rule, 'unknown', null, 'This criterion type is not supported for automatic checking.');
   }
+}
+
+const ADD_PRIVATELY = 'Add it privately in Profile ▸ Edit profile ▸ Preferences (never shared with the AI or your college), or check the official source.';
+
+/** Private details are compared, never echoed: explanations don't repeat the student's answer. */
+function privateChoice(rule, value, accepted, what) {
+  if (value == null) return result(rule, 'unknown', null, `This depends on your ${what}, which you haven't added (optional, private).`, ADD_PRIVATELY);
+  const ok = accepted.map((v) => String(v).toLowerCase()).includes(String(value).toLowerCase());
+  return ok
+    ? result(rule, 'met', null, 'Matches the private details in your profile.')
+    : result(rule, 'unmet', null, 'This scheme is for a different group, according to the private details in your profile.', 'If your private details are out of date, update them in Profile.');
+}
+
+function privateFlag(rule, value, what) {
+  if (value == null) return result(rule, 'unknown', null, `This depends on ${what}, which you haven't added (optional, private).`, ADD_PRIVATELY);
+  return value === true
+    ? result(rule, 'met', null, 'Matches the private details in your profile.')
+    : result(rule, 'unmet', null, 'This scheme is for a different group, according to the private details in your profile.', 'If your private details are out of date, update them in Profile.');
+}
+
+function audienceResult(rule, a) {
+  const opts = { isPrivate: true };
+  if (a.status === 'met') return result(rule, 'met', null, `This scheme is for ${a.labels.join(' / ')}; that matches the private details in your profile.`, null, opts);
+  if (a.status === 'unmet') return result(rule, 'unmet', null, `This scheme is for ${a.labels.join(' / ')}; your private details say this doesn't apply to you.`, 'If your private details are out of date, update them in Profile.', opts);
+  if (a.extraCondition) return result(rule, 'unknown', null, `Your private details match the group (${a.labels.join(' / ')}), but the scheme has an extra condition SarthiAI can't check.`, 'Read the scheme name and guidelines and confirm it yourself.', opts);
+  if (a.missingField) {
+    const field = { gender: 'gender', socialCategory: 'category', disability: 'disability status', minority: 'minority status', parentService: 'parent or guardian’s service', firstGeneration: 'first-generation status' }[a.missingField];
+    return result(rule, 'unknown', null, `This scheme is for ${a.labels.join(' / ')}. It depends on your ${field}, which you haven't added (optional, private).`, ADD_PRIVATELY, opts);
+  }
+  return result(rule, 'unknown', null, `This scheme is for ${a.labels.join(' / ')} or another group SarthiAI can't check.`, 'Read the scheme name and guidelines and confirm it yourself.', opts);
+}
+
+/**
+ * What the AI may see of an eligibility result: private criteria lose their
+ * status and explanation, and the overall result is recomputed without them.
+ */
+export function eligibilityForModel(r) {
+  const open = r.criteria.filter((c) => !c.private);
+  const mandatory = open.filter((c) => c.mandatory);
+  const overall = r.overall === OVERALL.INSUFFICIENT_SOURCE ? r.overall
+    : mandatory.some((c) => c.status === 'unmet') ? OVERALL.LIKELY_INELIGIBLE
+      : mandatory.some((c) => c.status === 'unknown') ? OVERALL.MISSING_INFO : OVERALL.ALL_MET;
+  return {
+    overall,
+    criteria: r.criteria.map((c) => (c.private
+      ? { requirement: c.requirement, status: 'checked_privately', mandatory: c.mandatory, explanation: 'Uses details the student keeps private from Sarthi. The app shows the student this result directly.', nextStep: null }
+      : { requirement: c.requirement, status: c.status, mandatory: c.mandatory, explanation: c.explanation, nextStep: c.nextStep })),
+    privateCriteria: r.criteria.filter((c) => c.private).length,
+  };
 }
 
 /** Rules derived from top-level structured fields when no explicit rule covers them. */
@@ -250,6 +319,8 @@ function derivedRules(opp) {
   }
   return rules;
 }
+
+export { GROUPS };
 
 export const OVERALL = {
   ALL_MET: 'all_criteria_met',

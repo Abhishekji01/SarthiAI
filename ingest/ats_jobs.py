@@ -21,7 +21,7 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-from common import Fetcher, clean, slug
+from common import Fetcher, clean, slug, clip
 
 SOURCE_ID = "ats"
 COMPANIES = json.loads((Path(__file__).parent / "companies.json").read_text())
@@ -303,7 +303,7 @@ def build(*, ats: str, board: str, job_id: str, company: str, title: str, locati
         "title": clean(f"{title}")[:200],
         "organization": company_name(company)[:160],
         "opportunityType": kind,
-        "officialDescription": text[:3900] or None,
+        "officialDescription": clip(text, 3900) or None,
         "sourceUrl": url,
         "applicationUrl": apply_url or url,
         "additionalSources": [],

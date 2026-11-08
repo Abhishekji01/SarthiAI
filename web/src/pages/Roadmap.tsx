@@ -8,11 +8,13 @@ import { formatDate, fromDateInput, toDateInput } from '../lib/format';
 import type { Milestone, MilestoneStatus, Roadmap } from '../lib/types';
 import { Empty, ErrorState, Field, Progress, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
 import { IconExternal, IconPlus, IconRoute, IconChat, IconTrash } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 const STATUS_TEXT: Record<MilestoneStatus, string> = { not_started: 'Not started', in_progress: 'In progress', paused: 'Paused', completed: 'Completed' };
 const STATUS_TONE: Record<MilestoneStatus, string> = { not_started: 'muted', in_progress: 'accent', paused: 'amber', completed: 'jade' };
 
 export function RoadmapPage() {
+  usePageTitle('Roadmap');
   const user = useUser();
   const toast = useToast();
   const { data: roadmap, error, loading, reload, setData } = useAsync(() => api.roadmap(), []);

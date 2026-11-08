@@ -5,11 +5,16 @@ import { useAsync } from '../lib/useAsync';
 import { useSession } from '../lib/session';
 import { openExternal, reminderPermission, requestReminderPermission, tap } from '../lib/platform';
 import { syncReminders } from '../lib/reminders';
-import { AVAILABILITY_LABEL, formatDate, formatMoney, fromDateInput, OVERALL_LABEL, STATUS_LABEL, toDateInput, TYPE_LABEL } from '../lib/format';
+import { formatDate, fromDateInput, OVERALL_LABEL, STATUS_LABEL, toDateInput, TYPE_LABEL } from '../lib/format';
 import { APPLICATION_STATUSES, type ApplicationStatus, type EligibilityResult, type Opportunity } from '../lib/types';
 import { DeadlineTag, FitMeter, VerificationTag } from '../components/OpportunityRow';
+import { SaveButton } from '../components/SaveButton';
+import { DeadlineActions } from '../components/DeadlineActions';
+import { DocumentChecklist } from '../components/DocumentChecklist';
+import { OfficialDescription, opportunityFacts, ShareButton, SourceSection } from '../components/OpportunityFacts';
 import { ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
-import { IconBookmark, IconCheck, IconDoc, IconExternal, IconChat, IconX } from '../components/icons';
+import { IconCheck, IconDoc, IconExternal, IconChat, IconX } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 export function OpportunityDetail() {
   const { id = '' } = useParams();
@@ -18,6 +23,8 @@ export function OpportunityDetail() {
   const { data: o, error, loading, reload, setData } = useAsync(() => api.opportunity(id), [id]);
   const [trackOpen, setTrackOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
+
+  usePageTitle(o?.title ?? 'Opportunity');
 
   if (loading && !o) return <div className="page"><TopBar title="" back /><Skeleton count={4} /></div>;
   if (error || !o) return <div className="page"><TopBar title="Opportunity" back /><ErrorState error={error ?? new Error('Not found')} onRetry={reload} /></div>;
@@ -35,23 +42,12 @@ export function OpportunityDetail() {
     }
   };
 
-  const money = [o.stipend && ['Stipend', formatMoney(o.stipend)], o.award && ['Award', formatMoney(o.award)]].filter(Boolean) as [string, string | null][];
-  const facts: [string, string][] = [
-    ['Deadline', o.deadline ? formatDate(o.deadline) : 'Not published'],
-    ['Status', AVAILABILITY_LABEL[o.availability]],
-    ...money.map(([k, v]) => [k, v ?? 'Not stated'] as [string, string]),
-    ...(o.duration ? [['Duration', o.duration] as [string, string]] : []),
-    ['Mode', o.workMode === 'not_applicable' ? 'Not applicable' : o.workMode === 'unknown' ? 'Not stated' : o.workMode[0].toUpperCase() + o.workMode.slice(1)],
-    ...(o.location?.description || o.location?.city ? [['Where', o.location.description ?? [o.location.city, o.location.state].filter(Boolean).join(', ')] as [string, string]] : o.location?.isNationwide ? [['Where', 'Across India'] as [string, string]] : []),
-    ...(o.eligibleYears.length ? [['Years', o.eligibleYears.map((y) => `Year ${y}`).join(', ')] as [string, string]] : []),
-    ...(o.eligibleDegrees.length ? [['Degrees', o.eligibleDegrees.join(', ')] as [string, string]] : []),
-    ...(o.minimumCGPA != null ? [['Min. CGPA', String(o.minimumCGPA)] as [string, string]] : []),
-  ];
+  const facts = opportunityFacts(o);
 
   return (
     <div className="page">
       <TopBar title="" back actions={
-        <button className={`icon-btn ${o.isSaved ? 'active' : ''}`} aria-label={o.isSaved ? 'Unsave' : 'Save'} aria-pressed={o.isSaved} onClick={toggleSave}><IconBookmark size={18} filled={o.isSaved} /></button>
+        <><ShareButton o={o} /><SaveButton saved={Boolean(o.isSaved)} onToggle={toggleSave} /></>
       } />
       <p className="faint">{TYPE_LABEL[o.opportunityType]} · {o.organization}</p>
       <h1>{o.title}</h1>
@@ -69,6 +65,7 @@ export function OpportunityDetail() {
           : <button className="btn secondary" onClick={() => setTrackOpen(true)}>Track application</button>}
       </div>
       <p className="tiny faint" style={{ marginTop: -12 }}>Opening the official site never marks you as applied — you update your tracker yourself.</p>
+      <DeadlineActions o={o} onChange={(patch) => setData({ ...o, ...patch })} />
 
       {o.summary && (
         <section className="section">
@@ -83,12 +80,7 @@ export function OpportunityDetail() {
       {o.match && <WhyThis o={o} />}
       <EligibilityReport o={o} />
 
-      {o.officialDescription && (
-        <section className="section">
-          <h2>From the official source</h2>
-          <p className="muted prewrap small">{o.officialDescription}</p>
-        </section>
-      )}
+      {o.officialDescription && <OfficialDescription text={o.officialDescription} sourceUrl={o.sourceUrl} />}
 
       {(o.requiredSkills.length > 0 || o.preferredSkills.length > 0) && (
         <section className="section">
@@ -100,14 +92,7 @@ export function OpportunityDetail() {
         </section>
       )}
 
-      {o.requiredDocuments.length > 0 && (
-        <section className="section">
-          <h2>Documents you’ll need</h2>
-          <ul className="list card" style={{ padding: '2px 16px' }}>
-            {o.requiredDocuments.map((d) => <li key={d} className="row small" style={{ padding: '10px 0' }}><IconDoc size={18} style={{ color: 'var(--ink-3)', flexShrink: 0 }} /> {d}</li>)}
-          </ul>
-        </section>
-      )}
+      <DocumentChecklist opportunityId={o.id} />
 
       <section className="section">
         <h2>Get help</h2>
@@ -121,19 +106,7 @@ export function OpportunityDetail() {
         </div>
       </section>
 
-      <section className="section">
-        <h2>Source & verification</h2>
-        <div className="card soft small">
-          <p><strong>{o.verificationStatus === 'verified' ? 'Verified' : 'Not yet verified'}</strong>{o.lastVerifiedAt && ` · checked ${formatDate(o.lastVerifiedAt)}`}{o.datesRefreshedAt && ` · dates refreshed ${formatDate(o.datesRefreshedAt)}`}</p>
-          {o.verificationNotes && <p className="muted">{o.verificationNotes}</p>}
-          {o.isStale && <p style={{ color: 'var(--amber)' }}>Last verified over 30 days ago — details may have changed.</p>}
-          <div className="stack">
-            {[{ label: 'Official source', url: o.sourceUrl }, ...o.additionalSources].map((s) => (
-              <button key={s.url} className="link-btn row" onClick={() => openExternal(s.url)}><IconExternal size={16} /> {s.label}</button>
-            ))}
-          </div>
-        </div>
-      </section>
+      <SourceSection o={o} />
 
       <TrackSheet o={o} open={trackOpen} onClose={() => setTrackOpen(false)} onTracked={(appId, status) => { setData({ ...o, tracked: { id: appId, status, archived: false } }); toast('Added to your tracker'); }} />
       <DraftSheet o={o} open={draftOpen} onClose={() => setDraftOpen(false)} />
@@ -184,13 +157,25 @@ function EligibilityReport({ o }: { o: Opportunity }) {
   const [result, setResult] = useState<EligibilityResult | null>(null);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<Error | null>(null);
+  const [version, setVersion] = useState(0);
+  const toast = useToast();
 
+  // Remembered answers come back with the check, so it opens the way the student left it.
   useEffect(() => {
     if (!open) return;
     let live = true;
-    api.checkEligibility(o.id, answers).then((r) => live && setResult(r)).catch((e) => live && setError(e));
+    api.checkEligibility(o.id).then((r) => { if (!live) return; setResult(r); setAnswers(r.savedAnswers ?? {}); }).catch((e) => live && setError(e));
     return () => { live = false; };
-  }, [open, answers, o.id]);
+  }, [open, o.id, version]);
+
+  const answer = async (key: string, v: boolean) => {
+    const next = answers[key] === v ? null : v;
+    setAnswers((a) => { const n = { ...a }; if (next === null) delete n[key]; else n[key] = next; return n; });
+    try { await api.saveAnswer(o.id, key, next); setVersion((x) => x + 1); } catch (e) { toast((e as Error).message); setVersion((x) => x + 1); }
+  };
+  const clear = async () => {
+    try { await api.clearAnswers(o.id); setVersion((x) => x + 1); toast('Your answers for this listing were cleared'); } catch (e) { toast((e as Error).message); }
+  };
 
   const overall = result ? OVERALL_LABEL[result.overall] : null;
   return (
@@ -216,7 +201,7 @@ function EligibilityReport({ o }: { o: Opportunity }) {
                     <div className="crit-head">
                       <span className={`crit-status ${c.status}`} aria-label={c.status}>{c.status === 'met' ? <IconCheck size={14} /> : c.status === 'unmet' ? <IconX size={14} /> : '?'}</span>
                       <div className="grow">
-                        <strong className="small">{c.requirement}</strong>{!c.mandatory && <span className="tag" style={{ marginLeft: 6 }}>Optional</span>}
+                        <strong className="small">{c.requirement}</strong>{!c.mandatory && <>{' '}<span className="tag" style={{ marginLeft: 2 }}>Optional</span></>}
                         <p className="small muted" style={{ margin: '2px 0 0' }}>{c.explanation}</p>
                         {c.nextStep && <p className="small" style={{ margin: '4px 0 0', color: 'var(--accent)' }}>→ {c.nextStep}</p>}
                         {c.sourceExcerpt && <p className="quote">“{c.sourceExcerpt}”</p>}
@@ -225,7 +210,7 @@ function EligibilityReport({ o }: { o: Opportunity }) {
                             <span className="small faint">Does this apply to you?</span>
                             {[true, false].map((v) => (
                               <button key={String(v)} className={`chip ${answers[c.key] === v ? 'on' : ''}`} aria-pressed={answers[c.key] === v}
-                                onClick={() => setAnswers((a) => { const n = { ...a }; if (n[c.key] === v) delete n[c.key]; else n[c.key] = v; return n; })}>
+                                onClick={() => answer(c.key, v)}>
                                 {answers[c.key] === v && <IconCheck size={14} />} {v ? 'Yes' : 'No'}
                               </button>
                             ))}
@@ -237,7 +222,8 @@ function EligibilityReport({ o }: { o: Opportunity }) {
                 ))}
               </ul>
               {result.caveats.map((c) => <div key={c.code} className="notice amber" style={{ marginTop: 8 }}>{c.message}</div>)}
-              <p className="tiny faint" style={{ marginTop: 10 }}>{result.disclaimer} Your Yes/No answers are used for this check only and are not saved.</p>
+              <p className="tiny faint" style={{ marginTop: 10 }}>{result.disclaimer} Your Yes/No answers are saved for this listing and used when SarthiAI ranks your matches.</p>
+              {Object.keys(answers).length > 0 && <button type="button" className="link-btn small" onClick={clear}>Clear my answers for this listing</button>}
             </>
           )}
         </div>

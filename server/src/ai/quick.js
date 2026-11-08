@@ -2,7 +2,9 @@ import { searchOpportunities, recommendedMatches } from '../services/opportuniti
 import { getDeadlines, getNextMoves } from '../services/nextMoves.js';
 import { Application } from '../models/Application.js';
 import { istDate } from './context.js';
-import { calendarDaysUntil } from '../utils/dates.js';
+import { calendarDaysUntil, deadlineWindowEnd } from '../utils/dates.js';
+import { OPPORTUNITY_TYPES } from '../models/Opportunity.js';
+import { isOffTopic, scopeReply } from './scope.js';
 
 /**
  * Quick answers: a deterministic, no-LLM fallback for the assistant.
@@ -11,6 +13,20 @@ import { calendarDaysUntil } from '../utils/dates.js';
  * few common intents and answers ONLY from the same services the AI tools
  * use, so it can never invent facts. Anything else becomes a ranked search.
  */
+
+/** Time-window questions: "this month", "this week", "closing soon", "is mahine"… */
+const WINDOWS = [
+  { window: 'this_week', rx: /\b(this|is)\s+(week|hafte)\b|\bclosing soon\b|\bnext (few|couple of) days\b/i, label: 'this week' },
+  { window: 'this_month', rx: /\b(this|is)\s+(month|mahine)\b|\bupcoming\b/i, label: 'this month' },
+  { window: 'next_30_days', rx: /\bnext (30 days|month)\b/i, label: 'in the next 30 days' },
+];
+const TYPE_WORDS = [
+  ['scholarship', /scholarship|chhatravritti|छात्रवृत्ति/i], ['internship', /internship/i], ['fellowship', /fellowship/i], ['research', /research/i],
+  ['hackathon', /hackathon/i], ['competition', /competition|contest/i], ['job', /\bjobs?\b/i], ['program', /programme|program\b/i],
+];
+const PRIVATE_RX = /\b(my|mera|meri|mere)\b.*\b(income|salary|home state|domicile|caste|category|gender|religion|disability)\b|\b(income|home state|domicile|caste|category)\b.*\b(my|mera|meri)\b/i;
+
+const LABEL = { all_criteria_met: 'likely eligible', missing_information: 'confirm eligibility', insufficient_source_info: 'check the official source' };
 
 const INTENTS = [
   { id: 'deadlines', rx: /\b(deadline|deadlines|due|closing|closes|last date|expir|reminder)/i },
@@ -38,11 +54,31 @@ function describe(o, now) {
 }
 
 export async function quickAnswer(user, message, { now = new Date() } = {}) {
-  const intent = INTENTS.find((i) => i.rx.test(message))?.id ?? 'search';
+  const win = WINDOWS.find((w) => w.rx.test(message));
+  const type = TYPE_WORDS.find(([, rx]) => rx.test(message))?.[0];
+  const intent = isOffTopic(message) ? 'scope' : PRIVATE_RX.test(message) ? 'private'
+    : win && (type || /\b(apply|open|closing|close|deadline)/i.test(message)) && !/\b(my|mere|meri) (deadlines?|applications?)\b/i.test(message) ? 'window'
+      : INTENTS.find((i) => i.rx.test(message))?.id ?? 'search';
   let reply;
   let citations = [];
 
-  if (intent === 'deadlines') {
+  if (intent === 'scope') {
+    reply = (await scopeReply(message)).reply;
+  } else if (intent === 'private') {
+    reply = 'That’s kept private from me. Your income, home state and other private scholarship details are never shared with Sarthi; the eligibility checks on each listing use them automatically. You can see or change them in Profile ▸ Edit profile ▸ Preferences.';
+  } else if (intent === 'window') {
+    const typeLabel = type ? `${type}s` : 'opportunities';
+    const { items, meta } = await searchOpportunities(user, {
+      type: OPPORTUNITY_TYPES.includes(type) ? type : undefined, deadlineBefore: deadlineWindowEnd(win.window, now),
+      excludeLikelyIneligible: true, sort: 'deadline', page: 1, limit: 25,
+    }, now);
+    citations = items.map(cite);
+    const line = (o) => `• **${o.title}** — ${o.organization} · closes ${fmtDate(o.deadline)} (${daysLeft(o.deadline, now)}) · ${LABEL[o.match?.eligibilityOverall] ?? 'check the official source'}${o.verificationStatus !== 'verified' ? ' · not yet verified' : ''}`;
+    const left = meta.excludedLikelyIneligible ? `\n\n${meta.excludedLikelyIneligible} more ${meta.excludedLikelyIneligible === 1 ? 'was' : 'were'} left out because a required criterion is not met.` : '';
+    reply = items.length
+      ? `${meta.total} ${typeLabel} close ${win.label}, soonest first${meta.total > items.length ? ` (showing ${items.length})` : ''}. “Confirm eligibility” means a criterion depends on something you haven't shared or that SarthiAI can't check:\n${items.map(line).join('\n')}${left}`
+      : `No ${typeLabel} close ${win.label}.${left} Try Find for listings with later deadlines.`;
+  } else if (intent === 'deadlines') {
     const items = await getDeadlines(user, { now });
     reply = items.length
       ? `Your upcoming dates (from your tracker and saved items):\n${items.slice(0, 8).map((d) => `• ${fmtDate(d.date)} (${daysLeft(d.date, now)}) — ${d.kind === 'next_action' ? `next action: ${d.title} (${d.organization})` : d.title}`).join('\n')}`

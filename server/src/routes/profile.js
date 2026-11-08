@@ -1,16 +1,25 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
+import { MAX_RESUME_BYTES, pdfText, suggestionsFromText } from '../profile/resume.js';
+import { sniffType } from '../documents/storage.js';
 import { User, serializeUser } from '../models/User.js';
 import { College, normalizeCollegeName } from '../models/College.js';
+import { CollegeRequest } from '../models/CollegeRequest.js';
 import { SavedOpportunity } from '../models/SavedOpportunity.js';
 import { Application } from '../models/Application.js';
 import { Roadmap } from '../models/Roadmap.js';
 import { Draft } from '../models/Draft.js';
+import { EligibilityAnswer } from '../models/EligibilityAnswer.js';
+import { Session } from '../models/Session.js';
+import { SavedSearch } from '../models/SavedSearch.js';
+import { deleteAllDocuments } from './documents.js';
+import { DateWatch, Notification } from '../models/Notification.js';
 import { verifyPassword } from '../auth/tokens.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { profilePatchSchema, deleteAccountSchema } from '../validators/schemas.js';
 import { send } from '../utils/http.js';
 import { badRequest, unauthorized } from '../utils/errors.js';
+import { graduationYearError } from '../../../shared/profileRules.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -23,7 +32,7 @@ router.patch('/', validate({ body: profilePatchSchema }), async (req, res) => {
   if (name) user.name = name;
 
   if (profile) {
-    const { collegeId, customCollegeName, ...rest } = profile;
+    const { collegeId, customCollegeName, customCollegeCity, customCollegeState, ...rest } = profile;
     if (collegeId !== undefined) {
       if (collegeId === null) {
         user.profile.collegeId = null;
@@ -44,17 +53,43 @@ router.patch('/', validate({ body: profilePatchSchema }), async (req, res) => {
       );
       user.profile.collegeId = college._id;
       user.profile.collegeName = college.name;
+      // A request for a platform admin to review (one per unlisted college; more students join it).
+      if (!college.listed) {
+        await CollegeRequest.updateOne(
+          { collegeId: college._id },
+          { $setOnInsert: { name: college.name, collegeId: college._id, status: 'pending' }, $addToSet: { requestedBy: user._id }, ...(customCollegeCity || customCollegeState ? { $set: { ...(customCollegeCity ? { city: customCollegeCity } : {}), ...(customCollegeState ? { state: customCollegeState } : {}) } } : {}) },
+          { upsert: true },
+        );
+      }
     }
     for (const [key, value] of Object.entries(rest)) {
       if (key === 'links') user.profile.links = { ...(user.profile.links?.toObject?.() ?? user.profile.links ?? {}), ...value };
       else user.profile[key] = value === null ? undefined : value;
     }
   }
+  if (profile && ('graduationYear' in profile || 'currentYear' in profile || 'degree' in profile)) {
+    // Same rule as the onboarding form: the graduation year must fit the current year of study.
+    const err = graduationYearError(user.profile.graduationYear, user.profile.degree, user.profile.currentYear);
+    if (err) throw badRequest('Some fields are invalid', [{ field: 'profile.graduationYear', message: err }]);
+  }
   if (notificationPrefs) user.notificationPrefs = { ...user.notificationPrefs.toObject(), ...notificationPrefs };
   if (completeOnboarding && !user.onboardingCompletedAt) user.onboardingCompletedAt = new Date();
 
   await user.save();
   send(res, { user: serializeUser(user) });
+});
+
+/**
+ * Reads a resume PDF and suggests skills, projects and experience to add.
+ * Nothing is saved here: the app shows the suggestions for the student to pick.
+ */
+router.post('/resume', express.raw({ type: () => true, limit: MAX_RESUME_BYTES }), async (req, res) => {
+  const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+  if (sniffType(buf) !== 'application/pdf') throw badRequest('Upload your resume as a PDF.');
+  let text;
+  try { text = await pdfText(buf); } catch { throw badRequest('This PDF could not be read. Try exporting it again as a PDF.'); }
+  if (text.replace(/\s+/g, '').length < 80) throw badRequest('No text found in this PDF (it may be a scanned image). Add your details by hand instead.');
+  send(res, { suggestions: suggestionsFromText(text, req.user.profile ?? {}) });
 });
 
 /** Permanently deletes the account and all student-owned data. */
@@ -67,6 +102,12 @@ router.delete('/', validate({ body: deleteAccountSchema }), async (req, res) => 
     Application.deleteMany({ userId }),
     Roadmap.deleteMany({ userId }),
     Draft.deleteMany({ userId }),
+    EligibilityAnswer.deleteMany({ userId }),
+    Session.deleteMany({ userId }),
+    SavedSearch.deleteMany({ userId }),
+    DateWatch.deleteMany({ userId }),
+    Notification.deleteMany({ userId }),
+    deleteAllDocuments(userId),
   ]);
   await User.deleteOne({ _id: userId });
   send(res, { deleted: true });

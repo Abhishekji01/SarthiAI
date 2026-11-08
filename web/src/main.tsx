@@ -12,15 +12,18 @@ import '@fontsource/plus-jakarta-sans/600.css';
 import '@fontsource/plus-jakarta-sans/700.css';
 import '@fontsource/plus-jakarta-sans/800.css';
 import './styles.css';
+import { I18nProvider } from './i18n';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <SessionProvider>
-        <ToastProvider>
-          <App />
-        </ToastProvider>
-      </SessionProvider>
+      <I18nProvider>
+        <SessionProvider>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </SessionProvider>
+      </I18nProvider>
     </BrowserRouter>
   </StrictMode>,
 );

@@ -122,6 +122,30 @@ for (const [id, c] of Object.entries(CONCEPTS)) {
   for (const a of c.aliases) ALIAS_TO_ID.set(norm(a), id);
 }
 
+/**
+ * Known skills/concepts named in free text (e.g. a resume), as their labels.
+ * Short or ambiguous aliases ("r", "c", "go", "cv", "web") only count when
+ * `loose` is true (inside a Skills section).
+ */
+const AMBIGUOUS = new Set(['r', 'c', 'go', 'cv', 'ds', 'cs', 'cp', 'web', 'api', 'apis', 'mobile', 'node', 'math', 'maths', 'stats', 'dl', 'ts', 'ml', 'ai', 'spring', 'express', 'excel', 'analytics', 'database', 'probability', 'coding', 'research', 'design', 'security', 'cloud', 'testing', 'networking', 'communication', 'leadership']);
+export function conceptsInText(text, { loose = false } = {}) {
+  const words = String(text ?? '').split(/[^A-Za-z0-9+#.]+/).filter(Boolean);
+  const found = new Map();
+  for (let i = 0; i < words.length; i += 1) {
+    for (let n = 3; n >= 1; n -= 1) {
+      if (i + n > words.length) continue;
+      const phrase = words.slice(i, i + n).join(' ');
+      const key = norm(phrase.replace(/\.$/, ''));
+      const id = ALIAS_TO_ID.get(key);
+      if (!id) continue;
+      if (!loose && n === 1 && (AMBIGUOUS.has(key) || key.length < 3)) continue;
+      if (!found.has(id)) found.set(id, CONCEPTS[id]?.label ?? id);
+      break;
+    }
+  }
+  return [...found.values()];
+}
+
 /** Canonical concept id for a free-text skill/interest, or its normalized form. */
 export function canonical(term) {
   const n = norm(term);
@@ -200,7 +224,8 @@ const STATE_ALIASES = {
   nagaland: ['nl'], odisha: ['od', 'orissa'], punjab: ['pb'], rajasthan: ['rj'], sikkim: ['sk'], tamilnadu: ['tn'],
   telangana: ['ts', 'tg'], tripura: ['tr'], uttarpradesh: ['up'], uttarakhand: ['uk', 'uttaranchal'], westbengal: ['wb'],
   delhi: ['dl', 'newdelhi', 'nctofdelhi'], jammuandkashmir: ['jk', 'jammukashmir'], ladakh: ['la'], puducherry: ['py', 'pondicherry'],
-  chandigarh: ['ch'], andamanandnicobarislands: ['an'], lakshadweep: ['ld'], dadraandnagarhavelianddamananddiu: ['dnhdd'],
+  chandigarh: ['ch'], andamanandnicobarislands: ['an', 'andamanandnicobar', 'andamannicobar', 'andaman'], lakshadweep: ['ld'],
+  dadraandnagarhavelianddamananddiu: ['dnhdd', 'dadraandnagarhaveli', 'damananddiu', 'dnh', 'dd'],
 };
 const STATE_LOOKUP = new Map();
 for (const [s, aliases] of Object.entries(STATE_ALIASES)) {

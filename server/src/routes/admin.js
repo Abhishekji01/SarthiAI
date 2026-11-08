@@ -15,6 +15,9 @@ import { User } from '../models/User.js';
 import { IngestRun } from '../models/IngestRun.js';
 import { send } from '../utils/http.js';
 import { badRequest, forbidden, notFound } from '../utils/errors.js';
+import { runDateWatches } from '../notify/jobs.js';
+import { CollegeRequest, serializeCollegeRequest } from '../models/CollegeRequest.js';
+import { collegeRequestReviewSchema } from '../validators/schemas.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('college_admin', 'platform_admin'));
@@ -100,6 +103,8 @@ router.patch('/opportunities/:id', validate({ params: idParams, body: adminOppor
   }
   if (b.title || b.sourceUrl) opp.dedupeKey = buildDedupeKey({ sourceUrl: opp.sourceUrl, title: opp.title, collegeId: opp.collegeId });
   await opp.save();
+  // A newly published deadline notifies students who asked to hear about it.
+  if (b.deadline) runDateWatches().catch(() => {});
   send(res, serializeOpportunity(opp));
 });
 
@@ -156,6 +161,39 @@ router.patch('/announcements/:id', validate({ params: idParams, body: announceme
 });
 
 // ---- Automated refresh history (platform admins) ---------------------------
+
+/** "Add my college" requests (platform admins). */
+router.get('/college-requests', requireRole('platform_admin'), async (req, res) => {
+  const status = ['pending', 'approved', 'merged', 'rejected'].includes(req.query.status) ? req.query.status : 'pending';
+  const rows = await CollegeRequest.find({ status }).sort({ createdAt: -1 }).limit(200).lean();
+  send(res, rows.map(serializeCollegeRequest));
+});
+
+router.post('/college-requests/:id', requireRole('platform_admin'), validate({ params: idParams, body: collegeRequestReviewSchema }), async (req, res) => {
+  const r = await CollegeRequest.findById(req.valid.params.id);
+  if (!r) throw notFound('Request not found');
+  if (r.status !== 'pending') throw badRequest('This request was already reviewed.');
+  const b = req.valid.body;
+  if (b.action === 'approve') {
+    // The college becomes listed; its students are already linked to it.
+    const set = { listed: true, ...(b.name ? { name: b.name } : {}), ...(b.shortName ? { shortName: b.shortName } : {}), city: b.city ?? r.city, state: b.state ?? r.state, ...(b.website ? { website: b.website } : {}) };
+    await College.updateOne({ _id: r.collegeId }, { $set: set });
+    if (b.name) await User.updateMany({ 'profile.collegeId': r.collegeId }, { $set: { 'profile.collegeName': b.name } });
+  } else if (b.action === 'merge') {
+    // Same institution as an existing college: move its students there.
+    const target = await College.findById(b.intoCollegeId);
+    if (!target || !target.listed) throw badRequest('Choose a listed college to merge into.');
+    if (String(target._id) === String(r.collegeId)) throw badRequest('Choose a different college.');
+    await User.updateMany({ 'profile.collegeId': r.collegeId }, { $set: { 'profile.collegeId': target._id, 'profile.collegeName': target.name } });
+    await College.deleteOne({ _id: r.collegeId, listed: false });
+    r.mergedInto = target._id;
+  }
+  r.status = { approve: 'approved', merge: 'merged', reject: 'rejected' }[b.action];
+  r.reviewedBy = req.user._id;
+  r.reviewedAt = new Date();
+  await r.save();
+  send(res, serializeCollegeRequest(r));
+});
 
 router.get('/ingest-runs', requireRole('platform_admin'), async (_req, res) => {
   send(res, await IngestRun.find().sort({ startedAt: -1 }).limit(20).lean());

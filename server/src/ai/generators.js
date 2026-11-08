@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { requireAI, structuredWithRepair } from './provider.js';
 import { profileForModel, opportunityForModel, UNTRUSTED_NOTICE, istDate } from './context.js';
+import { eligibilityForModel } from '../eligibility/engine.js';
 
 
 // ---- Roadmap ------------------------------------------------------------
@@ -70,7 +71,7 @@ export async function generateRoadmap(user, { goal, opportunity, eligibility, re
     goal,
     student: profileForModel(user, { includeName: 'none' }),
     targetOpportunity: opportunity ? opportunityForModel(opportunity) : null,
-    eligibilityGaps: eligibility ? eligibility.criteria.filter((c) => c.status !== 'met').map((c) => ({ requirement: c.requirement, status: c.status, explanation: c.explanation })) : [],
+    eligibilityGaps: eligibility ? eligibilityForModel(eligibility).criteria.filter((c) => c.status !== 'met' && c.status !== 'checked_privately').map((c) => ({ requirement: c.requirement, status: c.status, explanation: c.explanation })) : [],
     resourceCatalog: catalog,
   });
 
@@ -163,8 +164,8 @@ Then give 1–3 concrete next steps. ${UNTRUSTED_NOTICE}`;
   const input = JSON.stringify({
     student: profileForModel(user),
     opportunity: opportunityForModel(opportunity),
-    eligibilityOverall: eligibility.overall,
-    criteria: eligibility.criteria.map((c) => ({ requirement: c.requirement, status: c.status, explanation: c.explanation })),
+    eligibilityOverall: eligibilityForModel(eligibility).overall,
+    criteria: eligibilityForModel(eligibility).criteria.map((c) => ({ requirement: c.requirement, status: c.status, explanation: c.explanation })),
     caveats: eligibility.caveats.map((c) => c.message),
     matchFactors: match.factors,
   });

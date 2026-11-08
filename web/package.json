@@ -2,7 +2,7 @@
   "name": "sarthiai-web",
   "version": "1.0.0",
   "private": true,
-  "description": "SarthiAI — web app (PWA) and Android app (Capacitor) for Indian college students.",
+  "description": "SarthiAI \u2014 web app (PWA) and Android app (Capacitor) for Indian college students.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit",
     "android:sync": "npm run build && cap sync android",
     "android:open": "cap open android",
-    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug"
+    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@capacitor/android": "8.6.0",
@@ -30,11 +33,17 @@
     "react-router-dom": "7.18.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@capacitor/cli": "8.6.0",
+    "@playwright/test": "1.63.0",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.2.1",
+    "jsdom": "30.1.2",
     "typescript": "5.9.3",
-    "vite": "8.3.5"
+    "vite": "8.3.5",
+    "vitest": "5.1.0"
   }
 }

@@ -33,9 +33,13 @@ campusRouter.get('/announcements', async (req, res) => {
 export const collegesRouter = Router();
 collegesRouter.get('/', validate({ query: collegeQuerySchema }), async (req, res) => {
   const filter = { listed: true };
-  if (req.valid.query.q) {
-    const rx = new RegExp(escapeRegex(req.valid.query.q), 'i');
-    filter.$or = [{ name: rx }, { shortName: rx }, { aliases: rx }, { city: rx }];
+  // Every word must match somewhere ("kiet ghaziabad" = name + city). Blank or spaces = the full list.
+  const words = (req.valid.query.q ?? '').split(/\s+/).filter(Boolean).slice(0, 6);
+  if (words.length) {
+    filter.$and = words.map((w) => {
+      const rx = new RegExp(escapeRegex(w), 'i');
+      return { $or: [{ name: rx }, { shortName: rx }, { aliases: rx }, { city: rx }, { state: rx }] };
+    });
   }
   const colleges = await College.find(filter).sort({ name: 1 }).limit(30).lean();
   send(res, colleges.map(serializeCollege));

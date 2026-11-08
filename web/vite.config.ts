@@ -8,6 +8,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: { '/api': 'http://localhost:4000', '/health': 'http://localhost:4000' },
+    // ../shared holds rules shared with the API (profile limits, Indian states).
+    fs: { allow: ['..'] },
   },
   build: { outDir: 'dist', sourcemap: false, chunkSizeWarningLimit: 900 },
 });

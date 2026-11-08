@@ -7,6 +7,7 @@ import { syncReminders } from '../lib/reminders';
 import type { ChatReply, ProposedAction } from '../lib/types';
 import { RichText, TopBar, useToast } from '../components/ui';
 import { IconCheck, IconSend, IconChat } from '../components/icons';
+import { usePageTitle } from '../lib/usePageTitle';
 
 interface Msg { role: 'user' | 'assistant'; content: string; reply?: ChatReply; quick?: boolean }
 
@@ -22,6 +23,7 @@ const KEY = 'sarthi.chat';
 const loadHistory = (): Msg[] => { try { return JSON.parse(sessionStorage.getItem(KEY) ?? '[]'); } catch { return []; } };
 
 export function Sarthi() {
+  usePageTitle('Ask Sarthi');
   const [params] = useSearchParams();
   const about = params.get('about');
   const aboutTitle = params.get('title');
@@ -117,7 +119,8 @@ function AssistantBubble({ m }: { m: Msg }) {
       {r?.proposedActions.map((a) => <ActionCard key={a.id} a={a} />)}
       {r && r.citations.length > 0 && (
         <div className="chips" style={{ marginTop: 10 }}>
-          {r.citations.map((c) => <Link key={c.opportunityId} to={`/opportunity/${c.opportunityId}`} className="tag accent">{c.title.length > 40 ? `${c.title.slice(0, 38)}…` : c.title}</Link>)}
+          {r.citations.slice(0, 8).map((c) => <Link key={c.opportunityId} to={`/opportunity/${c.opportunityId}`} className="tag accent">{c.title.length > 40 ? `${c.title.slice(0, 38)}…` : c.title}</Link>)}
+          {r.citations.length > 8 && <span className="tag">+{r.citations.length - 8} more in the answer</span>}
         </div>
       )}
       {r && (
