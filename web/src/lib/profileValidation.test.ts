@@ -6,7 +6,7 @@ const NOW = new Date('2026-11-07T10:00:00Z'); // academic year 2026-27
 const draft = (p: Partial<Draft> = {}): Draft => ({
   name: 'Isha', college: null, customCollege: '', degree: 'B.Tech', branch: '', currentYear: '2', graduationYear: '', cgpa: '',
   skills: [], interests: [], careerGoal: '', headline: '', workModes: [], locations: [], homeState: '', income: '',
-  projects: [], achievements: [], github: '', linkedin: '', portfolio: '',
+  projects: [], experience: [], achievements: [], github: '', linkedin: '', portfolio: '',
   gender: '', socialCategory: '', disability: '', minority: '', parentService: '', firstGeneration: '', ...p,
 });
 

@@ -88,6 +88,8 @@ export interface EligibilityResult {
 }
 
 export interface Project { _id?: string; title: string; description?: string; skills?: string[]; url?: string }
+export interface Experience { role: string; organization: string; description?: string; startDate?: string | null; endDate?: string | null }
+export interface ResumeSuggestions { skills: string[]; projects: Project[]; experience: Experience[] }
 export interface Profile {
   collegeId: string | null;
   collegeName?: string;
@@ -102,6 +104,7 @@ export interface Profile {
   careerGoal?: string;
   headline?: string;
   projects?: Project[];
+  experience?: Experience[];
   achievements?: string[];
   preferredLocations?: string[];
   workModes?: ('remote' | 'hybrid' | 'onsite')[];

@@ -1,7 +1,7 @@
 import { isNative, storage } from './platform';
 import type {
   AdminMetrics, Announcement, Application, ChatReply, College, DeadlineItem, Draft, DraftKind, EligibilityResult, GapPlan,
-  ChecklistItem, DocumentVault, NextMove, OpenSummary, Opportunity, PageMeta, Profile, Resource, Roadmap, SavedSearch, User, VaultDocument,
+  ChecklistItem, DocumentVault, NextMove, OpenSummary, Opportunity, PageMeta, Profile, Resource, ResumeSuggestions, Roadmap, SavedSearch, User, VaultDocument,
 } from './types';
 
 import { buildFlags, resolveBaseUrl, shouldAttachToken, trimUrl } from './serverConfig';
@@ -197,6 +197,13 @@ export const api = {
   generateResume: (b: { kind: 'resume' | 'cover_letter' | 'resume_summary'; opportunityId?: string | null; extraContext?: string }) => post<Draft>('/ai/resume', b),
   explainMatch: (id: string) => post<{ explanation: string; nextSteps: string[] }>(`/ai/explain-match/${id}`),
 
+  /** Reads a resume PDF and returns suggestions; nothing is saved. */
+  parseResume: async (file: File) => {
+    const res = await fetch(`${baseUrl}/api/profile/resume`, { method: 'POST', body: file, headers: { 'Content-Type': 'application/pdf', ...authHeaders() }, credentials: usesCookieSession() ? 'same-origin' : 'omit' });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new ApiError(res.status, json?.error?.code ?? `HTTP_${res.status}`, res.status === 413 ? 'That PDF is larger than 2 MB.' : json?.error?.message ?? 'Could not read the resume.');
+    return json.data.suggestions as ResumeSuggestions;
+  },
   documents: () => get<DocumentVault>('/documents'),
   opportunityDocuments: (id: string) => get<ChecklistItem[]>(`/opportunities/${id}/documents`),
   setDocumentHave: (kind: string, have: boolean) => request<{ have: string[] }>('PUT', '/documents/have', { body: { kind, have } }).then((r) => r.data),

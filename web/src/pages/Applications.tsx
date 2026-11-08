@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAsync } from '../lib/useAsync';
@@ -26,6 +26,17 @@ export function Applications() {
   const { data, error, loading, reload, setData } = useAsync(() => api.applications(archived), [archived]);
   const [editing, setEditing] = useState<Application | null>(null);
   const [adding, setAdding] = useState(false);
+  const [view, setViewState] = useState<'list' | 'board'>(() => { try { return localStorage.getItem('sarthi.trackerView') === 'board' ? 'board' : 'list'; } catch { return 'list'; } });
+  const setView = (v: 'list' | 'board') => { setViewState(v); try { localStorage.setItem('sarthi.trackerView', v); } catch { /* ignore */ } };
+  const [outcomeFor, setOutcomeFor] = useState<Application | null>(null);
+  const move = async (a: Application, status: ApplicationStatus) => {
+    if (a.status === status) return;
+    // Optimistic: the card moves at once; the server keeps the status history.
+    setData((prev) => (prev ?? []).map((x) => (x.id === a.id ? { ...x, status } : x)));
+    const u = await save(a.id, { status });
+    if (u) toast(`Moved to ${STATUS_LABEL[status]}`);
+    else reload();
+  };
 
   const save = async (id: string, body: Partial<Application>) => {
     try {
@@ -39,14 +50,22 @@ export function Applications() {
   return (
     <div className="page">
       <TopBar title="Applications" kicker="Your tracker" actions={<button className="icon-btn" aria-label="Add external application" onClick={() => setAdding(true)}><IconPlus /></button>} />
-      <div className="chips" style={{ marginBottom: 14 }}>
-        <button className={`chip ${!archived ? 'on' : ''}`} onClick={() => setArchived(false)}>Active</button>
-        <button className={`chip ${archived ? 'on' : ''}`} onClick={() => setArchived(true)}>Archived</button>
+      <div className="row between wrap" style={{ marginBottom: 14, gap: 8 }}>
+        <div className="chips">
+          <button className={`chip ${!archived ? 'on' : ''}`} aria-pressed={!archived} onClick={() => setArchived(false)}>Active</button>
+          <button className={`chip ${archived ? 'on' : ''}`} aria-pressed={archived} onClick={() => setArchived(true)}>Archived</button>
+        </div>
+        <div className="chips" role="group" aria-label="View">
+          <button className={`chip ${view === 'list' ? 'on' : ''}`} aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button>
+          <button className={`chip ${view === 'board' ? 'on' : ''}`} aria-pressed={view === 'board'} onClick={() => setView('board')}>Board</button>
+        </div>
       </div>
       {loading && !data ? <Skeleton /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? (
         <Empty icon={<IconBriefcase size={40} />} title={archived ? 'Nothing archived' : 'No applications tracked yet'}>
           {!archived && <>Open an opportunity and tap <strong>Track application</strong>, or add one from outside SarthiAI with +. <br /><Link to="/discover">Browse opportunities</Link></>}
         </Empty>
+      ) : view === 'board' ? (
+        <Board items={data} onOpen={setEditing} onMove={(a, col) => (col.statuses.includes(a.status) ? undefined : col.key === 'outcome' ? setOutcomeFor(a) : move(a, col.drop))} onSetStatus={move} />
       ) : GROUPS.map((g) => {
         const items = data.filter((a) => g.statuses.includes(a.status));
         if (!items.length) return null;
@@ -79,6 +98,13 @@ export function Applications() {
           if (!confirm('Delete this application from your tracker?')) return;
           try { await api.deleteApplication(editing.id); setData((p) => (p ?? []).filter((x) => x.id !== editing.id)); setEditing(null); toast('Deleted'); } catch (e) { toast((e as Error).message); }
         }} />}
+      <Sheet open={Boolean(outcomeFor)} onClose={() => setOutcomeFor(null)} title="What was the outcome?">
+        <div className="stack">
+          {(['offer', 'rejected', 'withdrawn'] as ApplicationStatus[]).map((st) => (
+            <button key={st} className="btn block secondary" onClick={() => { if (outcomeFor) move(outcomeFor, st); setOutcomeFor(null); }}>{STATUS_LABEL[st]}</button>
+          ))}
+        </div>
+      </Sheet>
       <AddSheet open={adding} onClose={() => setAdding(false)} onAdded={(a) => { if (!archived) setData((p) => [a, ...(p ?? [])]); toast('Added'); syncReminders(user).catch(() => {}); }} />
     </div>
   );
@@ -148,5 +174,57 @@ function AddSheet({ open, onClose, onAdded }: { open: boolean; onClose: () => vo
       {err && <div className="notice coral" style={{ marginBottom: 12 }}>{err}</div>}
       <button className="btn block" onClick={go} disabled={!title.trim()}>Add</button>
     </Sheet>
+  );
+}
+
+/** Board columns. Dropping a card sets the column's status (Outcome asks which one). */
+const COLUMNS: { key: string; title: string; statuses: ApplicationStatus[]; drop: ApplicationStatus }[] = [
+  { key: 'interested', title: 'Interested', statuses: ['interested'], drop: 'interested' },
+  { key: 'preparing', title: 'Preparing', statuses: ['preparing', 'ready_to_apply'], drop: 'preparing' },
+  { key: 'applied', title: 'Applied', statuses: ['applied'], drop: 'applied' },
+  { key: 'interview', title: 'Interview', statuses: ['assessment', 'interview'], drop: 'interview' },
+  { key: 'outcome', title: 'Offer / Not selected', statuses: ['offer', 'rejected', 'withdrawn'], drop: 'offer' },
+];
+
+/**
+ * Kanban view of the tracker. Drag a card to another column (mouse), or use its
+ * "Move to" menu (keyboard, touch screens and screen readers).
+ */
+function Board({ items, onOpen, onMove, onSetStatus }: { items: Application[]; onOpen: (a: Application) => void; onMove: (a: Application, col: (typeof COLUMNS)[number]) => void; onSetStatus: (a: Application, s: ApplicationStatus) => void }) {
+  const [over, setOver] = useState<string | null>(null);
+  const byId = new Map(items.map((a) => [a.id, a]));
+  const drop = (e: DragEvent, col: (typeof COLUMNS)[number]) => {
+    e.preventDefault();
+    setOver(null);
+    const a = byId.get(e.dataTransfer.getData('text/plain'));
+    if (a) onMove(a, col);
+  };
+  return (
+    <div className="board" aria-label="Applications board">
+      {COLUMNS.map((col) => {
+        const cards = items.filter((a) => col.statuses.includes(a.status));
+        return (
+          <section key={col.key} className={`board-col ${over === col.key ? 'over' : ''}`} aria-label={`${col.title}, ${cards.length}`}
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(col.key); }}
+            onDragLeave={() => setOver((o) => (o === col.key ? null : o))}
+            onDrop={(e) => drop(e, col)} data-testid={`column-${col.key}`}>
+            <h3 className="board-head">{col.title} <span className="faint">{cards.length}</span></h3>
+            {cards.map((a) => (
+              <article key={a.id} className="card board-card" draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', a.id); e.dataTransfer.effectAllowed = 'move'; }}>
+                <button type="button" className="board-open" onClick={() => onOpen(a)}>
+                  <strong className="small">{a.title}</strong>
+                  {a.organization && <span className="faint">{a.organization}</span>}
+                  {a.deadline && <span className="tag" style={{ marginTop: 6, alignSelf: 'flex-start' }}>{relativeDays(a.deadline)}</span>}
+                </button>
+                <select className="input board-move" aria-label={`Move “${a.title}” to`} value={a.status} onChange={(e) => onSetStatus(a, e.target.value as ApplicationStatus)}>
+                  {APPLICATION_STATUSES.map((st) => <option key={st} value={st}>{STATUS_LABEL[st]}</option>)}
+                </select>
+              </article>
+            ))}
+            {!cards.length && <p className="tiny faint" style={{ margin: '4px 2px' }}>Drop here</p>}
+          </section>
+        );
+      })}
+    </div>
   );
 }

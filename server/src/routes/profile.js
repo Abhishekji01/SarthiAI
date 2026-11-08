@@ -1,4 +1,6 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
+import { MAX_RESUME_BYTES, pdfText, suggestionsFromText } from '../profile/resume.js';
+import { sniffType } from '../documents/storage.js';
 import { User, serializeUser } from '../models/User.js';
 import { College, normalizeCollegeName } from '../models/College.js';
 import { SavedOpportunity } from '../models/SavedOpportunity.js';
@@ -66,6 +68,19 @@ router.patch('/', validate({ body: profilePatchSchema }), async (req, res) => {
 
   await user.save();
   send(res, { user: serializeUser(user) });
+});
+
+/**
+ * Reads a resume PDF and suggests skills, projects and experience to add.
+ * Nothing is saved here: the app shows the suggestions for the student to pick.
+ */
+router.post('/resume', express.raw({ type: () => true, limit: MAX_RESUME_BYTES }), async (req, res) => {
+  const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+  if (sniffType(buf) !== 'application/pdf') throw badRequest('Upload your resume as a PDF.');
+  let text;
+  try { text = await pdfText(buf); } catch { throw badRequest('This PDF could not be read. Try exporting it again as a PDF.'); }
+  if (text.replace(/\s+/g, '').length < 80) throw badRequest('No text found in this PDF (it may be a scanned image). Add your details by hand instead.');
+  send(res, { suggestions: suggestionsFromText(text, req.user.profile ?? {}) });
 });
 
 /** Permanently deletes the account and all student-owned data. */

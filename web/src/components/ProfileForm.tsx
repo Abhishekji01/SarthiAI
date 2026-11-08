@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, type ProfilePatch } from '../lib/api';
-import type { College, Profile, Project, User } from '../lib/types';
-import { Field, TokenEditor } from './ui';
+import type { College, Experience, Profile, Project, ResumeSuggestions, User } from '../lib/types';
+import { Field, Sheet, TokenEditor } from './ui';
 import { fieldId, type FieldErrors } from '../lib/profileValidation';
 import { incomeDigits } from '../../../shared/profileRules.js';
 import { OTHER_STATE, STATES, UNION_TERRITORIES } from '../../../shared/states.js';
@@ -25,7 +25,7 @@ export interface Draft {
   homeState: string; income: string;
   /** Private scholarship details: '' = prefer not to say. Yes/no fields use 'yes' | 'no' | ''. */
   gender: string; socialCategory: string; disability: string; minority: string; parentService: string; firstGeneration: string;
-  projects: Project[]; achievements: string[];
+  projects: Project[]; experience: Experience[]; achievements: string[];
   github: string; linkedin: string; portfolio: string;
 }
 
@@ -44,6 +44,7 @@ export function draftFrom(user: User): Draft {
     gender: p.gender ?? '', socialCategory: p.socialCategory ?? '', parentService: p.parentService ?? '',
     disability: yesNo(p.disability), minority: yesNo(p.minority), firstGeneration: yesNo(p.firstGeneration),
     projects: (p.projects ?? []).map((x) => ({ title: x.title, description: x.description ?? '', skills: x.skills ?? [], url: x.url ?? '' })),
+    experience: (p.experience ?? []).map((x) => ({ role: x.role, organization: x.organization, description: x.description ?? '', startDate: x.startDate ?? null, endDate: x.endDate ?? null })),
     achievements: p.achievements ?? [],
     github: p.links?.github ?? '', linkedin: p.links?.linkedin ?? '', portfolio: p.links?.portfolio ?? '',
   };
@@ -65,6 +66,7 @@ export function toPatch(d: Draft, original: User, completeOnboarding = false): P
     gender: (d.gender || null) as Profile['gender'], socialCategory: (d.socialCategory || null) as Profile['socialCategory'], parentService: (d.parentService || null) as Profile['parentService'],
     disability: toBool(d.disability) as boolean, minority: toBool(d.minority) as boolean, firstGeneration: toBool(d.firstGeneration) as boolean,
     projects: d.projects.filter((p) => p.title.trim()).map((p) => ({ title: p.title.trim(), description: p.description?.trim(), skills: p.skills ?? [], url: url(p.url ?? '') })),
+    experience: d.experience.filter((x) => x.role.trim() && x.organization.trim()).map((x) => ({ role: x.role.trim(), organization: x.organization.trim(), description: x.description?.trim() || undefined, startDate: x.startDate ?? null, endDate: x.endDate ?? null })),
     achievements: d.achievements,
     links: { github: url(d.github), linkedin: url(d.linkedin), portfolio: url(d.portfolio) },
   };
@@ -248,6 +250,7 @@ export function ProjectFields({ draft, set }: { draft: Draft; set: (p: Partial<D
   const update = (i: number, p: Partial<Project>) => set({ projects: draft.projects.map((x, j) => (j === i ? { ...x, ...p } : x)) });
   return (
     <>
+      <ResumeImport draft={draft} set={set} />
       <Field label="Headline (optional)"><input className="input" value={draft.headline} onChange={(e) => set({ headline: e.target.value })} placeholder="e.g. 2nd-year CSE student building security tools" maxLength={160} /></Field>
       <div className="field">
         <span>Projects</span>
@@ -265,6 +268,16 @@ export function ProjectFields({ draft, set }: { draft: Draft; set: (p: Partial<D
         ))}
         <button type="button" className="btn small secondary" onClick={() => set({ projects: [...draft.projects, { title: '', description: '', skills: [], url: '' }] })}><IconPlus size={16} /> Add project</button>
       </div>
+      <div className="field">
+        <span>Experience</span>
+        {draft.experience.length === 0 && <p className="tiny faint" style={{ marginTop: -2 }}>Internships, jobs or club roles. Import them from your resume above.</p>}
+        {draft.experience.map((x, i) => (
+          <div key={i} className="card soft row" style={{ marginBottom: 8, alignItems: 'flex-start' }}>
+            <div className="grow small"><strong>{x.role}</strong> · {x.organization}{x.description && <p className="faint" style={{ margin: '2px 0 0' }}>{x.description}</p>}</div>
+            <button type="button" className="icon-btn" aria-label={`Remove ${x.role}`} onClick={() => set({ experience: draft.experience.filter((_, j) => j !== i) })}><IconTrash size={18} /></button>
+          </div>
+        ))}
+      </div>
       <TokenEditor label="Achievements" tokens={draft.achievements} onChange={(achievements) => set({ achievements })} max={20} placeholder="e.g. Top 10 in college CTF 2026" />
       <div className="grid-2">
         <Field label="GitHub"><input className="input" inputMode="url" value={draft.github} onChange={(e) => set({ github: e.target.value })} placeholder="github.com/you" /></Field>
@@ -272,5 +285,71 @@ export function ProjectFields({ draft, set }: { draft: Draft; set: (p: Partial<D
       </div>
       <Field label="Portfolio"><input className="input" inputMode="url" value={draft.portfolio} onChange={(e) => set({ portfolio: e.target.value })} placeholder="yoursite.dev" /></Field>
     </>
+  );
+}
+
+/**
+ * "Fill from my resume": reads a PDF on the server (no AI) and shows what it
+ * found. Only the items the student keeps are added to the form; nothing is
+ * saved until they press Save profile.
+ */
+export function ResumeImport({ draft, set }: FormProps) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [found, setFound] = useState<ResumeSuggestions | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [pick, setPick] = useState<{ skills: Set<string>; projects: Set<number>; experience: Set<number> }>({ skills: new Set(), projects: new Set(), experience: new Set() });
+  const [keepFile, setKeepFile] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+
+  const read = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true); setErr(null);
+    try {
+      const s = await api.parseResume(f);
+      setFound(s); setFile(f);
+      setPick({ skills: new Set(s.skills), projects: new Set(s.projects.map((_, i) => i)), experience: new Set(s.experience.map((_, i) => i)) });
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); if (ref.current) ref.current.value = ''; }
+  };
+  const flip = <T,>(setOf: Set<T>, v: T) => { const n = new Set(setOf); if (n.has(v)) n.delete(v); else n.add(v); return n; };
+  const apply = async () => {
+    if (!found) return;
+    set({
+      skills: [...draft.skills, ...found.skills.filter((x) => pick.skills.has(x))].slice(0, 30),
+      projects: [...draft.projects, ...found.projects.filter((_, i) => pick.projects.has(i)).map((p) => ({ title: p.title, description: p.description ?? '', skills: p.skills ?? [], url: '' }))].slice(0, 20),
+      experience: [...draft.experience, ...found.experience.filter((_, i) => pick.experience.has(i))].slice(0, 20),
+    });
+    if (keepFile && file) api.uploadDocument('resume', file).catch(() => {});
+    setFound(null);
+  };
+  const nothing = found && !found.skills.length && !found.projects.length && !found.experience.length;
+  return (
+    <div className="card soft" style={{ marginBottom: 14 }}>
+      <div className="row">
+        <span className="grow small"><strong>Fill from my resume</strong><br /><span className="faint">PDF up to 2 MB. Read on SarthiAI’s server, not by the AI. You choose what to add.</span></span>
+        <input ref={ref} type="file" accept="application/pdf,.pdf" hidden aria-hidden="true" tabIndex={-1} data-testid="resume-file" onChange={(e) => read(e.target.files?.[0])} />
+        <button type="button" className="btn small secondary" onClick={() => ref.current?.click()} disabled={busy}>{busy ? 'Reading…' : 'Choose PDF'}</button>
+      </div>
+      {err && <div className="notice coral small" role="alert" style={{ marginTop: 10 }}>{err}</div>}
+      <Sheet open={Boolean(found)} onClose={() => setFound(null)} title="Found in your resume">
+        {nothing ? <p className="small muted">Nothing new found: your profile already has these, or the resume’s sections couldn’t be read.</p> : (
+          <>
+            <p className="small muted">Untick anything that’s wrong. You can edit everything afterwards.</p>
+            {found && found.skills.length > 0 && (<div className="field"><span>Skills</span><div className="chips">{found.skills.map((x) => (
+              <button type="button" key={x} className={`chip ${pick.skills.has(x) ? 'on' : ''}`} aria-pressed={pick.skills.has(x)} onClick={() => setPick({ ...pick, skills: flip(pick.skills, x) })}>{x}</button>
+            ))}</div></div>)}
+            {found && found.projects.length > 0 && (<div className="field"><span>Projects</span>{found.projects.map((p, i) => (
+              <label key={i} className="check small" style={{ alignItems: 'flex-start' }}><input type="checkbox" checked={pick.projects.has(i)} onChange={() => setPick({ ...pick, projects: flip(pick.projects, i) })} /> <span><strong>{p.title}</strong>{p.skills?.length ? ` · ${p.skills.join(', ')}` : ''}</span></label>
+            ))}</div>)}
+            {found && found.experience.length > 0 && (<div className="field"><span>Experience</span>{found.experience.map((x, i) => (
+              <label key={i} className="check small"><input type="checkbox" checked={pick.experience.has(i)} onChange={() => setPick({ ...pick, experience: flip(pick.experience, i) })} /> <span><strong>{x.role}</strong> · {x.organization}</span></label>
+            ))}</div>)}
+            <label className="check small"><input type="checkbox" checked={keepFile} onChange={(e) => setKeepFile(e.target.checked)} /> Also keep this PDF in Your documents</label>
+            <button type="button" className="btn block" style={{ marginTop: 8 }} onClick={apply}>Add to my profile</button>
+            <p className="tiny faint" style={{ marginTop: 8 }}>Then press Save profile to keep the changes.</p>
+          </>
+        )}
+      </Sheet>
+    </div>
   );
 }
