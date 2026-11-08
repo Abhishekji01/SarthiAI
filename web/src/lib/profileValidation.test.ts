@@ -4,7 +4,7 @@ import type { Draft } from '../components/ProfileForm';
 
 const NOW = new Date('2026-11-07T10:00:00Z'); // academic year 2026-27
 const draft = (p: Partial<Draft> = {}): Draft => ({
-  name: 'Isha', college: null, customCollege: '', degree: 'B.Tech', branch: '', currentYear: '2', graduationYear: '', cgpa: '',
+  name: 'Isha', college: null, customCollege: '', customCollegeCity: '', customCollegeState: '', degree: 'B.Tech', branch: '', currentYear: '2', graduationYear: '', cgpa: '',
   skills: [], interests: [], careerGoal: '', headline: '', workModes: [], locations: [], homeState: '', income: '',
   projects: [], experience: [], achievements: [], github: '', linkedin: '', portfolio: '',
   gender: '', socialCategory: '', disability: '', minority: '', parentService: '', firstGeneration: '', ...p,

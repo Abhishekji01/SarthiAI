@@ -4,12 +4,12 @@ import { api } from '../lib/api';
 import { useAsync } from '../lib/useAsync';
 import { useUser } from '../lib/session';
 import { formatDate, fromDateInput, TYPE_LABEL } from '../lib/format';
-import { OPPORTUNITY_TYPES, type Announcement, type College, type Opportunity } from '../lib/types';
+import { OPPORTUNITY_TYPES, type Announcement, type College, type CollegeRequest, type Opportunity } from '../lib/types';
 import { Empty, ErrorState, Field, Sheet, Skeleton, TopBar, useToast } from '../components/ui';
 import { IconPlus } from '../components/icons';
 import { usePageTitle } from '../lib/usePageTitle';
 
-const TABS = ['Announcements', 'Listings', 'Metrics'] as const;
+const TABS = ['Announcements', 'Listings', 'Metrics', 'College requests'] as const;
 const CATEGORIES = ['general', 'placement', 'scholarship', 'internship', 'event', 'academic'];
 
 export function Admin() {
@@ -21,10 +21,11 @@ export function Admin() {
   return (
     <div className="page wide">
       <TopBar title="Campus admin" kicker={user.role === 'platform_admin' ? 'Platform admin' : 'College admin'} back="/" />
-      <div className="chips" style={{ marginBottom: 18 }}>{TABS.map((t) => <button key={t} className={`chip ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>{t}</button>)}</div>
+      <div className="chips" style={{ marginBottom: 18 }}>{TABS.filter((t) => t !== 'College requests' || user.role === 'platform_admin').map((t) => <button key={t} className={`chip ${tab === t ? 'on' : ''}`} aria-pressed={tab === t} onClick={() => setTab(t)}>{t}</button>)}</div>
       {tab === 'Announcements' && <Announcements colleges={colleges.data ?? []} />}
       {tab === 'Listings' && <Listings colleges={colleges.data ?? []} platform={user.role === 'platform_admin'} />}
       {tab === 'Metrics' && <Metrics />}
+      {tab === 'College requests' && user.role === 'platform_admin' && <CollegeRequests colleges={colleges.data ?? []} />}
     </div>
   );
 }
@@ -214,5 +215,61 @@ function Metrics() {
         <p className="tiny faint" style={{ marginTop: 8 }}>{data.note}</p>
       </section>
     </>
+  );
+}
+
+/** "My institution isn't listed" requests: approve, merge into an existing college, or reject. */
+function CollegeRequests({ colleges }: { colleges: College[] }) {
+  const toast = useToast();
+  const [status, setStatus] = useState<CollegeRequest['status']>('pending');
+  const { data, error, loading, reload } = useAsync(() => api.admin.collegeRequests(status), [status]);
+  const listed = colleges.filter((c) => c.listed);
+  return (
+    <section>
+      <div className="chips" style={{ marginBottom: 12 }}>
+        {(['pending', 'approved', 'merged', 'rejected'] as const).map((s) => <button key={s} className={`chip ${status === s ? 'on' : ''}`} aria-pressed={status === s} onClick={() => setStatus(s)}>{s[0].toUpperCase() + s.slice(1)}</button>)}
+      </div>
+      {loading && !data ? <Skeleton count={2} /> : error ? <ErrorState error={error} onRetry={reload} /> : !data?.length ? <Empty title={`No ${status} requests`} /> : (
+        <div className="stack">{data.map((r) => <RequestCard key={r.id} r={r} listed={listed} onDone={(msg) => { toast(msg); reload(); }} />)}</div>
+      )}
+    </section>
+  );
+}
+
+function RequestCard({ r, listed, onDone }: { r: CollegeRequest; listed: College[]; onDone: (msg: string) => void }) {
+  const [name, setName] = useState(r.name);
+  const [shortName, setShortName] = useState('');
+  const [into, setInto] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const act = async (body: Parameters<typeof api.admin.reviewCollegeRequest>[1], msg: string) => {
+    setBusy(true); setErr(null);
+    try { await api.admin.reviewCollegeRequest(r.id, body); onDone(msg); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <article className="card">
+      <h3 style={{ margin: 0 }}>{r.name}</h3>
+      <p className="small faint" style={{ margin: '2px 0 10px' }}>{[r.city, r.state].filter(Boolean).join(', ') || 'No city or state given'} · {r.students} student{r.students === 1 ? '' : 's'} · {formatDate(r.createdAt)}</p>
+      {r.status === 'pending' ? (
+        <>
+          <div className="grid-2">
+            <Field label="Official name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></Field>
+            <Field label="Short name (optional)"><input className="input" value={shortName} onChange={(e) => setShortName(e.target.value)} maxLength={30} /></Field>
+          </div>
+          <div className="row wrap">
+            <button className="btn small" disabled={busy || name.trim().length < 2} onClick={() => act({ action: 'approve', name: name.trim(), ...(shortName.trim() ? { shortName: shortName.trim() } : {}) }, 'Approved and listed')}>Approve</button>
+            <button className="btn small ghost" disabled={busy} onClick={() => act({ action: 'reject' }, 'Rejected')}>Reject</button>
+          </div>
+          <div className="row wrap" style={{ marginTop: 10 }}>
+            <select className="input grow" aria-label={`Merge “${r.name}” into`} value={into} onChange={(e) => setInto(e.target.value)} style={{ minWidth: 200 }}>
+              <option value="">Same as an existing college…</option>
+              {listed.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <button className="btn small secondary" disabled={busy || !into} onClick={() => act({ action: 'merge', intoCollegeId: into }, 'Merged; students moved')}>Merge</button>
+          </div>
+          {err && <div className="notice coral small" role="alert" style={{ marginTop: 10 }}>{err}</div>}
+        </>
+      ) : <span className="tag">{r.status}</span>}
+    </article>
   );
 }

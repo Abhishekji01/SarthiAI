@@ -18,7 +18,7 @@ export const LOCATIONS = ['Delhi NCR', 'Bengaluru', 'Mumbai', 'Hyderabad', 'Pune
 export interface Draft {
   name: string;
   college: { id: string; name: string } | null;
-  customCollege: string;
+  customCollege: string; customCollegeCity: string; customCollegeState: string;
   degree: string; branch: string; currentYear: string; graduationYear: string; cgpa: string;
   skills: string[]; interests: string[]; careerGoal: string; headline: string;
   workModes: ('remote' | 'hybrid' | 'onsite')[]; locations: string[];
@@ -34,7 +34,7 @@ export function draftFrom(user: User): Draft {
   return {
     name: user.name,
     college: p.collegeId ? { id: p.collegeId, name: p.collegeName ?? 'Your college' } : null,
-    customCollege: '',
+    customCollege: '', customCollegeCity: '', customCollegeState: '',
     degree: p.degree ?? '', branch: p.branch ?? '',
     currentYear: p.currentYear ? String(p.currentYear) : '', graduationYear: p.graduationYear ? String(p.graduationYear) : '',
     cgpa: p.cgpa != null ? String(p.cgpa) : '',
@@ -71,7 +71,11 @@ export function toPatch(d: Draft, original: User, completeOnboarding = false): P
     links: { github: url(d.github), linkedin: url(d.linkedin), portfolio: url(d.portfolio) },
   };
   if (d.college && d.college.id !== original.profile.collegeId) profile.collegeId = d.college.id;
-  else if (!d.college && d.customCollege.trim().length >= 2) profile.customCollegeName = d.customCollege.trim();
+  else if (!d.college && d.customCollege.trim().length >= 2) {
+    profile.customCollegeName = d.customCollege.trim();
+    if (d.customCollegeCity.trim()) profile.customCollegeCity = d.customCollegeCity.trim();
+    if (d.customCollegeState) profile.customCollegeState = d.customCollegeState;
+  }
   return { name: d.name.trim() || undefined, profile, ...(completeOnboarding ? { completeOnboarding: true } : {}) };
 }
 
@@ -101,9 +105,18 @@ export function CollegePicker({ draft, set, errors = {} }: FormProps) {
   if (notListed) {
     return (
       <>
-        <Field label="Institution name" error={errors.college} hint="We'll add it to SarthiAI. Campus notices appear once your college joins.">
+        <Field label="Institution name" error={errors.college} hint="We'll ask SarthiAI's team to add it. You can use SarthiAI meanwhile; campus notices appear once your college joins.">
           <input id={fieldId('college')} className="input" value={draft.customCollege} onChange={(e) => set({ customCollege: e.target.value })} placeholder="e.g. Government Engineering College, Ajmer" />
         </Field>
+        <div className="grid-2">
+          <Field label="City (optional)"><input className="input" value={draft.customCollegeCity} onChange={(e) => set({ customCollegeCity: e.target.value })} maxLength={60} placeholder="e.g. Ajmer" /></Field>
+          <Field label="State (optional)">
+            <select className="input" value={draft.customCollegeState} onChange={(e) => set({ customCollegeState: e.target.value })}>
+              <option value="">Select…</option>
+              {[...STATES, ...UNION_TERRITORIES].map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </Field>
+        </div>
         <button type="button" className="link-btn small" onClick={() => { setNotListed(false); set({ customCollege: '' }); }}>Search the list instead</button>
       </>
     );

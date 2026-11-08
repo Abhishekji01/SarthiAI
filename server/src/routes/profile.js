@@ -3,6 +3,7 @@ import { MAX_RESUME_BYTES, pdfText, suggestionsFromText } from '../profile/resum
 import { sniffType } from '../documents/storage.js';
 import { User, serializeUser } from '../models/User.js';
 import { College, normalizeCollegeName } from '../models/College.js';
+import { CollegeRequest } from '../models/CollegeRequest.js';
 import { SavedOpportunity } from '../models/SavedOpportunity.js';
 import { Application } from '../models/Application.js';
 import { Roadmap } from '../models/Roadmap.js';
@@ -31,7 +32,7 @@ router.patch('/', validate({ body: profilePatchSchema }), async (req, res) => {
   if (name) user.name = name;
 
   if (profile) {
-    const { collegeId, customCollegeName, ...rest } = profile;
+    const { collegeId, customCollegeName, customCollegeCity, customCollegeState, ...rest } = profile;
     if (collegeId !== undefined) {
       if (collegeId === null) {
         user.profile.collegeId = null;
@@ -52,6 +53,14 @@ router.patch('/', validate({ body: profilePatchSchema }), async (req, res) => {
       );
       user.profile.collegeId = college._id;
       user.profile.collegeName = college.name;
+      // A request for a platform admin to review (one per unlisted college; more students join it).
+      if (!college.listed) {
+        await CollegeRequest.updateOne(
+          { collegeId: college._id },
+          { $setOnInsert: { name: college.name, collegeId: college._id, status: 'pending' }, $addToSet: { requestedBy: user._id }, ...(customCollegeCity || customCollegeState ? { $set: { ...(customCollegeCity ? { city: customCollegeCity } : {}), ...(customCollegeState ? { state: customCollegeState } : {}) } } : {}) },
+          { upsert: true },
+        );
+      }
     }
     for (const [key, value] of Object.entries(rest)) {
       if (key === 'links') user.profile.links = { ...(user.profile.links?.toObject?.() ?? user.profile.links ?? {}), ...value };

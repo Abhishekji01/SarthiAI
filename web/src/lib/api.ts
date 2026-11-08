@@ -1,7 +1,7 @@
 import { isNative, storage } from './platform';
 import type {
   AdminMetrics, Announcement, Application, ChatReply, College, DeadlineItem, Draft, DraftKind, EligibilityResult, GapPlan,
-  ChecklistItem, DocumentVault, NextMove, OpenSummary, Opportunity, PageMeta, Profile, Resource, ResumeSuggestions, Roadmap, SavedSearch, User, VaultDocument,
+  ChecklistItem, CollegeRequest, DocumentVault, NextMove, OpenSummary, Opportunity, PageMeta, Profile, Resource, ResumeSuggestions, Roadmap, SavedSearch, User, VaultDocument,
 } from './types';
 
 import { buildFlags, resolveBaseUrl, shouldAttachToken, trimUrl } from './serverConfig';
@@ -129,7 +129,7 @@ export interface OpportunityQuery {
   campusOnly?: boolean; mentions?: boolean; deadlineWithinDays?: number; hasPrize?: boolean; sort?: 'relevance' | 'deadline' | 'recent' | 'nearby'; page?: number; limit?: number;
   minAnnualAmount?: number; hideIneligible?: boolean;
 }
-export type ProfilePatch = { name?: string; profile?: Partial<Profile> & { customCollegeName?: string }; notificationPrefs?: Partial<User['notificationPrefs']>; completeOnboarding?: boolean };
+export type ProfilePatch = { name?: string; profile?: Partial<Profile> & { customCollegeName?: string; customCollegeCity?: string; customCollegeState?: string }; notificationPrefs?: Partial<User['notificationPrefs']>; completeOnboarding?: boolean };
 
 export const api = {
   health: () => fetch(`${baseUrl}/health`).then((r) => r.ok).catch(() => false),
@@ -241,5 +241,7 @@ export const api = {
     createAnnouncement: (b: Record<string, unknown>) => post<Announcement>('/admin/announcements', b),
     updateAnnouncement: (id: string, b: Record<string, unknown>) => patch<Announcement>(`/admin/announcements/${id}`, b),
     metrics: () => get<AdminMetrics>('/admin/metrics'),
+    collegeRequests: (status = 'pending') => get<CollegeRequest[]>('/admin/college-requests', { status }),
+    reviewCollegeRequest: (id: string, b: { action: 'approve'; name?: string; shortName?: string; city?: string; state?: string } | { action: 'merge'; intoCollegeId: string } | { action: 'reject' }) => post<CollegeRequest>(`/admin/college-requests/${id}`, b),
   },
 };

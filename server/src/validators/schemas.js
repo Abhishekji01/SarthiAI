@@ -68,6 +68,8 @@ export const profilePatchSchema = z.object({
   profile: z.object({
     collegeId: z.union([objectId, z.null()]).optional(),
     customCollegeName: line(160).pipe(z.string().min(2, 'Enter your institution’s full name')).optional(),
+    customCollegeCity: line(60).optional(),
+    customCollegeState: z.union([line(60).refine(isHomeStateOption, 'Choose a state or union territory from the list'), z.literal('')]).optional(),
     degree: line(60).optional(),
     branch: line(80).optional(),
     currentYear: z.union([z.number().int().min(1).max(6), z.null()]).optional(),
@@ -373,3 +375,9 @@ export const announcementPatchSchema = z.object({
 });
 
 export const collegeQuerySchema = z.object({ q: str(80).optional() });
+
+export const collegeRequestReviewSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('approve'), name: line(160).pipe(z.string().min(2)).optional(), shortName: line(30).optional(), city: line(60).optional(), state: line(60).optional(), website: z.union([httpsUrl, z.literal('')]).optional() }),
+  z.object({ action: z.literal('merge'), intoCollegeId: objectId }),
+  z.object({ action: z.literal('reject') }),
+]);

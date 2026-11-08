@@ -1,7 +1,7 @@
 {
   "name": "sarthiai-server",
   "version": "1.0.0",
-  "description": "SarthiAI API — your future, guided.",
+  "description": "SarthiAI API \u2014 your future, guided.",
   "type": "module",
   "private": true,
   "main": "src/server.js",
@@ -18,7 +18,8 @@
     "sources:check": "node scripts/check-sources.js",
     "test": "vitest run",
     "lint": "node --check src/server.js && node scripts/lint.js",
-    "eval:sarthi": "node scripts/eval-sarthi.js"
+    "eval:sarthi": "node scripts/eval-sarthi.js",
+    "colleges:import": "node scripts/import-colleges.js"
   },
   "dependencies": {
     "@google/genai": "^2.31.0",

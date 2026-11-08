@@ -229,6 +229,7 @@ export interface GapPlan {
 export interface TypeSummary { open: number; likelyEligible: number; needDetails: number; likelyIneligible: number; closingIn30Days: number }
 export interface OpenSummary { types: Record<OpportunityType, TypeSummary> }
 
+export interface CollegeRequest { id: string; name: string; city: string | null; state: string | null; collegeId: string; students: number; status: 'pending' | 'approved' | 'merged' | 'rejected'; mergedInto: string | null; createdAt: string }
 export interface SavedSearch { id: string; name: string; params: Record<string, string>; query: string; alerts: boolean; createdAt: string }
 
 export interface VaultDocument { id: string; kind: string; fileName: string; contentType: string; size: number; createdAt: string }
