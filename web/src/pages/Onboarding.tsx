@@ -7,17 +7,19 @@ import { CollegePicker, draftFrom, EducationFields, InterestFields, PreferenceFi
 import { LogoMark } from '../components/ui';
 import { FIELD_STEP, fieldErrorsFromServer, firstErrorField, focusField, validateAll, validateStep, type FieldErrors } from '../lib/profileValidation';
 import { usePageTitle } from '../lib/usePageTitle';
+import { useT } from '../i18n';
 
 const STEPS = [
-  { title: 'Where do you study?', sub: 'Campus notices and college-only opportunities depend on this.' },
-  { title: 'Your course', sub: 'Eligibility checks compare these with each listing’s official criteria.' },
-  { title: 'Skills & goals', sub: 'Sarthi ranks matches by what you know and where you want to go.' },
-  { title: 'Preferences', sub: 'All optional. You can change everything later in Profile.' },
-];
+  { title: 'onboarding.s1', sub: 'onboarding.s1sub' },
+  { title: 'onboarding.s2', sub: 'onboarding.s2sub' },
+  { title: 'onboarding.s3', sub: 'onboarding.s3sub' },
+  { title: 'onboarding.s4', sub: 'onboarding.s4sub' },
+] as const;
 
 export function Onboarding() {
   usePageTitle('Set up your profile');
   const user = useUser();
+  const t = useT();
   const { setUser } = useSession();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -75,14 +77,14 @@ export function Onboarding() {
     <div className="page no-nav with-footer" style={{ maxWidth: 620 }}>
       <div className="row between" style={{ marginBottom: 20 }}>
         <LogoMark size={36} />
-        <button className="link-btn" onClick={() => finish(true)} disabled={busy}>Skip for now</button>
+        <button className="link-btn" onClick={() => finish(true)} disabled={busy}>{t('onboarding.skip')}</button>
       </div>
       <div className="steps" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
         {STEPS.map((_, i) => <div key={i} className={i <= step ? 'done' : ''} />)}
       </div>
-      <p className="faint">Step {step + 1} of {STEPS.length}</p>
-      <h1>{step === 0 ? `Welcome, ${user.name.split(' ')[0]}. ` : ''}{STEPS[step].title}</h1>
-      <p className="muted" style={{ marginBottom: 20 }}>{STEPS[step].sub}</p>
+      <p className="faint">{t('onboarding.step', { n: step + 1, total: STEPS.length })}</p>
+      <h1>{step === 0 ? t('onboarding.welcome', { name: user.name.split(' ')[0] }) : ''}{t(STEPS[step].title)}</h1>
+      <p className="muted" style={{ marginBottom: 20 }}>{t(STEPS[step].sub)}</p>
 
       {step === 0 && <CollegePicker draft={draft} set={set} errors={errors} />}
       {step === 1 && <EducationFields draft={draft} set={set} errors={errors} />}
@@ -92,10 +94,10 @@ export function Onboarding() {
       <div className="bottom-bar">
         {/* Inside the sticky footer, so it is never hidden behind it. */}
         {error && <div className="notice coral bottom-bar-error" role="alert">{error}</div>}
-        {step > 0 && <button className="btn ghost" onClick={() => { setErrors({}); setStep(step - 1); }} disabled={busy}>Back</button>}
+        {step > 0 && <button className="btn ghost" onClick={() => { setErrors({}); setStep(step - 1); }} disabled={busy}>{t('common.back')}</button>}
         {step < STEPS.length - 1
-          ? <button className="btn grow" onClick={next}>Continue</button>
-          : <button className="btn grow" onClick={() => finish()} disabled={busy}>{busy ? 'Saving…' : 'Finish'}</button>}
+          ? <button className="btn grow" onClick={next}>{t('common.continue')}</button>
+          : <button className="btn grow" onClick={() => finish()} disabled={busy}>{busy ? t('common.saving') : t('common.finish')}</button>}
       </div>
     </div>
   );

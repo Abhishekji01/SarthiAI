@@ -9,6 +9,8 @@ import { OpportunityRow } from '../components/OpportunityRow';
 import { Empty, ErrorState, Skeleton } from '../components/ui';
 import { IconArrowRight, IconBookmark, IconChat, IconDoc, IconMegaphone, IconRoute } from '../components/icons';
 import { usePageTitle } from '../lib/usePageTitle';
+import { translate, useT } from '../i18n';
+import type { MessageKey } from '../i18n/en';
 
 function moveLink(m: NextMove) {
   switch (m.target.type) {
@@ -22,26 +24,27 @@ function moveLink(m: NextMove) {
 }
 
 /** The four category tiles. Each counts exactly what its Find link lists (open listings of that type). */
-const CATEGORIES: { label: string; cat: string; type: OpportunityType }[] = [
-  { label: 'Scholarships', cat: 'cat-scholarship', type: 'scholarship' },
-  { label: 'Internships', cat: 'cat-internship', type: 'internship' },
-  { label: 'Research', cat: 'cat-research', type: 'research' },
-  { label: 'Hackathons', cat: 'cat-hackathon', type: 'hackathon' },
+const CATEGORIES: { label: MessageKey; cat: string; type: OpportunityType }[] = [
+  { label: 'home.scholarships', cat: 'cat-scholarship', type: 'scholarship' },
+  { label: 'home.internships', cat: 'cat-internship', type: 'internship' },
+  { label: 'home.research', cat: 'cat-research', type: 'research' },
+  { label: 'home.hackathons', cat: 'cat-hackathon', type: 'hackathon' },
 ];
 
 /** Secondary line for a tile: how the open listings split by eligibility. */
-export function tileNote(t: TypeSummary | undefined) {
-  if (!t || t.open === 0) return 'Nothing open right now';
+export function tileNote(t: TypeSummary | undefined, tr: (k: MessageKey, v?: Record<string, number>) => string = (k, v) => translate('en', k, v)) {
+  if (!t || t.open === 0) return tr('home.nothingOpen');
   const parts = [];
-  if (t.likelyEligible) parts.push(`${t.likelyEligible} fit you`);
-  if (t.needDetails) parts.push(`${t.needDetails} need your details`);
-  if (!parts.length && t.closingIn30Days) parts.push(`${t.closingIn30Days} close within 30 days`);
-  return parts.join(' · ') || 'Open now';
+  if (t.likelyEligible) parts.push(tr('home.fitYou', { n: t.likelyEligible }));
+  if (t.needDetails) parts.push(tr('home.needDetails', { n: t.needDetails }));
+  if (!parts.length && t.closingIn30Days) parts.push(tr('home.closeSoon', { n: t.closingIn30Days }));
+  return parts.join(' · ') || tr('home.openNow');
 }
 
 export function Home() {
   usePageTitle('Home');
   const user = useUser();
+  const t = useT();
   const moves = useAsync(() => api.nextMoves(), []);
   const deadlines = useAsync(() => api.deadlines(), []);
   const matches = useAsync(() => api.matches({ limit: 30, tier: 'all' }), []);
@@ -65,7 +68,7 @@ export function Home() {
     <div className="page">
       <header className="topbar">
         <div className="grow">
-          <p className="faint" style={{ margin: 0 }}>{greeting()}</p>
+          <p className="faint" style={{ margin: 0 }}>{t(({ 'Good morning': 'home.morning', 'Good afternoon': 'home.afternoon', 'Good evening': 'home.evening' } as const)[greeting()])}</p>
           <h1 style={{ margin: 0 }}>{user.name}</h1>
         </div>
         <Link to="/saved" className="icon-btn" aria-label="Saved"><IconBookmark size={18} /></Link>
@@ -93,17 +96,18 @@ export function Home() {
                 <div style={{ width: `${progressPct}%` }} />
               </div>
             )}
-            <Link to={moveLink(lead)} className="hero-link">Continue <IconArrowRight size={16} style={{ marginLeft: 6 }} /></Link>
+            <Link to={moveLink(lead)} className="hero-link">{t('home.continue')} <IconArrowRight size={16} style={{ marginLeft: 6 }} /></Link>
           </div>
         ) : null}
 
         {CATEGORIES.map((c) => {
-          const t = summary.data?.types[c.type];
+          const sum = summary.data?.types[c.type];
+          const note = summary.data ? tileNote(sum, t) : '';
           return (
-            <Link key={c.type} to={`/discover?type=${c.type}`} className={`tile ${c.cat}`} aria-label={`${t ? t.open : 'Loading'} open ${c.label}. ${summary.data ? tileNote(t) : ''}`}>
-              <span className="num">{summary.loading && !summary.data ? '–' : summary.error ? '?' : t?.open ?? 0}</span>
-              <span className="tile-label">{c.label}</span>
-              <span className="tile-note">{summary.data ? tileNote(t) : ' '}</span>
+            <Link key={c.type} to={`/discover?type=${c.type}`} className={`tile ${c.cat}`} aria-label={`${sum ? sum.open : '…'} ${t(c.label)}. ${note}`}>
+              <span className="num">{summary.loading && !summary.data ? '–' : summary.error ? '?' : sum?.open ?? 0}</span>
+              <span className="tile-label">{t(c.label)}</span>
+              <span className="tile-note">{summary.data ? note : ' '}</span>
             </Link>
           );
         })}
@@ -111,8 +115,8 @@ export function Home() {
         <Link to="/sarthi" className="tile plain full" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 0 }}>
           <span className="ask-icon"><IconChat size={22} /></span>
           <span className="grow">
-            <strong style={{ display: 'block', fontSize: 15 }}>Ask Sarthi</strong>
-            <span className="faint">“Which scholarships can I apply to this month?”</span>
+            <strong style={{ display: 'block', fontSize: 15 }}>{t('home.ask')}</strong>
+            <span className="faint">{t('home.askExample')}</span>
           </span>
         </Link>
       </section>
@@ -121,23 +125,23 @@ export function Home() {
       <section className="bento" style={{ marginTop: 8 }} aria-label="Shortcuts">
         <Link to="/plan" className="tile plain small">
           <IconRoute size={20} />
-          <span className="grow">{plan.data && plan.data.summary.unlockable > 0 ? `${plan.data.summary.unlockable} one skill away` : '90-day plan'}</span>
+          <span className="grow">{plan.data && plan.data.summary.unlockable > 0 ? t('home.oneSkillAway', { n: plan.data.summary.unlockable }) : t('home.plan')}</span>
         </Link>
         <Link to="/roadmap" className="tile plain small">
           <span className="num" style={{ fontSize: 18 }}>{progress ? `${progress.completed}/${progress.total}` : '0'}</span>
-          <span className="grow">Roadmap</span>
+          <span className="grow">{t('nav.roadmap')}</span>
         </Link>
-        <Link to="/drafts" className="tile plain small"><IconDoc size={20} /><span className="grow">Drafts</span></Link>
+        <Link to="/drafts" className="tile plain small"><IconDoc size={20} /><span className="grow">{t('home.drafts')}</span></Link>
         {(notices.data?.length ?? 0) > 0 ? (
           <a href="#campus" className="tile plain small"><IconMegaphone size={20} /><span className="grow">{notices.data!.length} campus notice{notices.data!.length === 1 ? '' : 's'}</span></a>
         ) : (
-          <Link to="/applications" className="tile plain small"><IconBookmark size={20} /><span className="grow">Applied</span></Link>
+          <Link to="/applications" className="tile plain small"><IconBookmark size={20} /><span className="grow">{t('nav.applied')}</span></Link>
         )}
       </section>
 
       {/* ---- Coming up ---- */}
       <section className="section">
-        <div className="section-head"><h2>Coming up</h2><Link to="/applications">All</Link></div>
+        <div className="section-head"><h2>{t('home.comingUp')}</h2><Link to="/applications">{t('home.all')}</Link></div>
         {deadlines.loading && !deadlines.data ? <Skeleton count={2} height={52} /> : deadlines.error ? <ErrorState error={deadlines.error} onRetry={deadlines.reload} /> : deadlines.data?.length ? (
           <ul className="list card" style={{ padding: '0 14px' }}>
             {deadlines.data.slice(0, 3).map((d, i) => {
@@ -155,12 +159,12 @@ export function Home() {
               );
             })}
           </ul>
-        ) : <p className="faint">No dates in the next 60 days. Save or track an opportunity to see its deadline here.</p>}
+        ) : <p className="faint">{t('home.noDates')}</p>}
       </section>
 
       {/* ---- Matched for you ---- */}
       <section className="section">
-        <div className="section-head"><h2>Matched for you</h2><Link to="/discover">See all</Link></div>
+        <div className="section-head"><h2>{t('home.matched')}</h2><Link to="/discover">{t('home.seeAll')}</Link></div>
         {matches.loading && !matches.data ? <Skeleton count={3} height={120} /> : matches.error ? <ErrorState error={matches.error} onRetry={matches.reload} /> : topThree.length ? (
           <div className="stack">{topThree.map((o) => <OpportunityRow key={o.id} o={o} />)}</div>
         ) : (

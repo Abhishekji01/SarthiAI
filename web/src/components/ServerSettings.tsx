@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DEFAULT_SERVER_URL, getServerUrl, probeServer, resetServerUrl, setServerUrl, usingCustomServer } from '../lib/api';
 import { trimUrl, validateServerUrl } from '../lib/serverConfig';
 import { Field } from './ui';
+import { currentLang, translate } from '../i18n';
 
 /**
  * Developer-only server picker (dev builds and the unconfigured Android debug APK).
@@ -46,5 +47,5 @@ export function ServerSettings({ onSaved }: { onSaved?: () => void }) {
 /** Shown next to a "cannot reach the server" error. */
 export function NetworkErrorActions({ onRetry }: { onRetry?: () => void }) {
   if (usingCustomServer()) return <button type="button" className="btn small danger" onClick={() => resetServerUrl()}>Reset to default server</button>;
-  return onRetry ? <button type="button" className="btn small danger" onClick={onRetry}>Retry</button> : null;
+  return onRetry ? <button type="button" className="btn small danger" onClick={onRetry}>{translate(currentLang(), 'common.retry')}</button> : null;
 }

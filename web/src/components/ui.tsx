@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { IconBack, IconX } from './icons';
 import { ApiError } from '../lib/api';
 import { NetworkErrorActions } from './ServerSettings';
+import { currentLang, translate } from '../i18n';
 
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
@@ -111,7 +112,7 @@ export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => v
       <div className="grow">{error.message}</div>
       {error instanceof ApiError && error.code === 'NETWORK'
         ? <NetworkErrorActions onRetry={onRetry} />
-        : onRetry && <button className="btn small danger" onClick={onRetry}>Retry</button>}
+        : onRetry && <button className="btn small danger" onClick={onRetry}>{translate(currentLang(), 'common.retry')}</button>}
     </div>
   );
 }

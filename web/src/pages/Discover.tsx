@@ -13,6 +13,7 @@ import { IconBookmark, IconCompass, IconFilter, IconPin, IconSearch } from '../c
 import { Link } from 'react-router-dom';
 import { useToast } from '../components/ui';
 import { usePageTitle } from '../lib/usePageTitle';
+import { useT } from '../i18n';
 
 /** Plural chip labels: "Scholarships", "Internships", "Research", "Hackathons"… */
 const CHIP_LABEL: Record<string, string> = {
@@ -26,6 +27,7 @@ export function Discover() {
   usePageTitle('Find');
   const [params, setParams] = useSearchParams();
   const user = useUser();
+  const t = useT();
   const places = placesOf(user);
   const [cityOpen, setCityOpen] = useState(false);
   const eventType = params.get('type') === 'hackathon' || params.get('type') === 'competition' ? params.get('type')! : null;
@@ -119,23 +121,23 @@ export function Discover() {
 
   return (
     <div className="page">
-      <TopBar title="Find" actions={<>
-        <Link to="/searches" className="icon-btn" aria-label="Saved searches" title="Saved searches"><IconBookmark size={18} /></Link>
+      <TopBar title={t('find.title')} actions={<>
+        <Link to="/searches" className="icon-btn" aria-label={t('find.savedSearches')} title={t('find.savedSearches')}><IconBookmark size={18} /></Link>
         <button className={`icon-btn ${activeFilters ? 'active' : ''}`} aria-label={`Filters${activeFilters ? ` (${activeFilters} active)` : ''}`} onClick={() => setFiltersOpen(true)}><IconFilter /></button>
       </>} />
       <form className="search" role="search" onSubmit={(e) => { e.preventDefault(); update({ q: text.trim() || null }); }}>
         <IconSearch size={18} />
-        <input className="input" type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder='Try "ML internship" or "girls"' aria-label="Search opportunities" enterKeyHint="search" />
+        <input className="input" type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder={t('find.placeholder')} aria-label={t('find.search')} enterKeyHint="search" />
       </form>
       <div className="chips scroll" style={{ marginTop: 12 }}>
-        <button className={`chip ${!query.type ? 'on' : ''}`} onClick={() => update({ type: null })}>All</button>
+        <button className={`chip ${!query.type ? 'on' : ''}`} onClick={() => update({ type: null })}>{t('find.all')}</button>
         {OPPORTUNITY_TYPES.map((t) => (
           <button key={t} className={`chip ${query.type === t ? 'on' : ''}`} aria-pressed={query.type === t} onClick={() => update({ type: query.type === t ? null : t })}>{CHIP_LABEL[t]}</button>
         ))}
       </div>
 
       <div className="chips scroll quick-filters" role="group" aria-label="Quick filters">
-        <button className={`chip ${nearOn ? 'on' : ''}`} aria-pressed={nearOn} onClick={toggleNear}><IconPin size={14} /> Near me</button>
+        <button className={`chip ${nearOn ? 'on' : ''}`} aria-pressed={nearOn} onClick={toggleNear}><IconPin size={14} /> {t('find.nearMe')}</button>
         {modes.filter(([m]) => m !== 'hybrid').map(([m, label]) => (
           <button key={m} className={`chip ${query.workMode === m ? 'on' : ''}`} aria-pressed={query.workMode === m} onClick={() => update({ workMode: query.workMode === m ? null : m })}>{label}</button>
         ))}
@@ -146,12 +148,12 @@ export function Discover() {
             {cities.data!.map((c) => <option key={c.city} value={c.city}>{c.city} ({c.count})</option>)}
           </select>
         )}
-        {[[7, 'This week'], [30, 'This month']].map(([d, label]) => (
+        {([[7, t('find.thisWeek')], [30, t('find.thisMonth')]] as const).map(([d, label]) => (
           <button key={d} className={`chip ${query.deadlineWithinDays === d ? 'on' : ''}`} aria-pressed={query.deadlineWithinDays === d} onClick={() => update({ within: query.deadlineWithinDays === d ? null : String(d) })}>{label}</button>
         ))}
         {events && <button className={`chip ${query.hasPrize ? 'on' : ''}`} aria-pressed={Boolean(query.hasPrize)} onClick={() => update({ hasPrize: query.hasPrize ? null : 'true' })}>Has prizes</button>}
-        <button className={`chip ${query.sort === 'deadline' ? 'on' : ''}`} aria-pressed={query.sort === 'deadline'} onClick={() => update({ sort: query.sort === 'deadline' ? null : 'deadline' })}>Soonest deadline</button>
-        <button className={`chip ${query.hideIneligible ? 'on' : ''}`} aria-pressed={Boolean(query.hideIneligible)} onClick={() => update({ hideIneligible: query.hideIneligible ? null : 'true' })}>Hide likely not eligible</button>
+        <button className={`chip ${query.sort === 'deadline' ? 'on' : ''}`} aria-pressed={query.sort === 'deadline'} onClick={() => update({ sort: query.sort === 'deadline' ? null : 'deadline' })}>{t('find.soonest')}</button>
+        <button className={`chip ${query.hideIneligible ? 'on' : ''}`} aria-pressed={Boolean(query.hideIneligible)} onClick={() => update({ hideIneligible: query.hideIneligible ? null : 'true' })}>{t('find.hideIneligible')}</button>
         {activeFilters > 0 && <button className="chip chip-clear" onClick={() => { const q = params.get('q'); const type = params.get('type'); setParams(new URLSearchParams(Object.entries({ q, type }).filter(([, v]) => v) as [string, string][]), { replace: true }); }}>Clear</button>}
       </div>
 
@@ -166,11 +168,11 @@ export function Discover() {
         )}
         {meta && !error && (
           <p className="faint" style={{ marginBottom: 10 }}>
-            {meta.total} result{meta.total === 1 ? '' : 's'}
+            {meta.total === 1 ? t('find.result') : t('find.results', { n: meta.total })}
             {meta.search?.relaxed && ' · no exact match, showing closely related results'}
             {query.sort === 'relevance' ? ' · ranked by fit' : query.sort === 'deadline' ? ' · soonest deadline first' : query.sort === 'nearby' ? ' · nearest first' : ' · recently updated'}
             {query.hideIneligible && meta.excludedLikelyIneligible ? ` · ${meta.excludedLikelyIneligible} hidden as likely not eligible` : ''}
-            {searchParamsToSave(params) && <>{' · '}<button type="button" className="link-btn" onClick={() => setSaveOpen(true)}>Save this search</button></>}
+            {searchParamsToSave(params) && <>{' · '}<button type="button" className="link-btn" onClick={() => setSaveOpen(true)}>{t('find.saveSearch')}</button></>}
           </p>
         )}
         {error && <ErrorState error={error} onRetry={() => load(1)} />}

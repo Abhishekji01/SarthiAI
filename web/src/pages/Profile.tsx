@@ -11,11 +11,13 @@ import { CollegePicker, draftFrom, EducationFields, InterestFields, PreferenceFi
 import { Field, Sheet, TopBar, useToast } from '../components/ui';
 import { IconBell, IconBookmark, IconDoc, IconMegaphone, IconSearch, IconSettings, IconShield, IconUser } from '../components/icons';
 import { usePageTitle } from '../lib/usePageTitle';
+import { LANGUAGES, useI18n } from '../i18n';
 
 export function ProfilePage() {
   usePageTitle('Profile');
   const user = useUser();
   const { signOut, signOutEverywhere, setUser } = useSession();
+  const { t, lang, setLang } = useI18n();
   const toast = useToast();
   const navigate = useNavigate();
   const p = user.profile;
@@ -40,7 +42,7 @@ export function ProfilePage() {
 
   return (
     <div className="page">
-      <TopBar title="Profile" back="/" />
+      <TopBar title={t('profile.title')} back="/" />
       <section className="card row" style={{ alignItems: 'flex-start' }}>
         <Avatar name={user.name} size={54} />
         <div className="grow">
@@ -54,7 +56,7 @@ export function ProfilePage() {
           <span className="grow">Profile {Math.round((completeness / 7) * 100)}% complete — more detail means more accurate eligibility checks and matches.</span>
         </div>
       )}
-      <Link to="/profile/edit" className="btn block" style={{ marginTop: 12 }}><IconUser size={18} /> Edit profile</Link>
+      <Link to="/profile/edit" className="btn block" style={{ marginTop: 12 }}><IconUser size={18} /> {t('profile.edit')}</Link>
 
       {(p.skills?.length ?? 0) > 0 && (
         <section className="section">
@@ -66,18 +68,30 @@ export function ProfilePage() {
 
       <section className="section">
         <ul className="list card" style={{ padding: '2px 16px' }}>
-          <li><Link to="/saved" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconBookmark size={20} /> <span className="grow">Saved opportunities</span> ›</Link></li>
+          <li><Link to="/saved" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconBookmark size={20} /> <span className="grow">{t('profile.saved')}</span> ›</Link></li>
           <li><Link to="/drafts" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconDoc size={20} /> <span className="grow">Drafts</span> ›</Link></li>
-          <li><Link to="/searches" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconSearch size={20} /> <span className="grow">Saved searches</span> ›</Link></li>
-          <li><Link to="/documents" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconShield size={20} /> <span className="grow">Your documents</span> ›</Link></li>
+          <li><Link to="/searches" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconSearch size={20} /> <span className="grow">{t('find.savedSearches')}</span> ›</Link></li>
+          <li><Link to="/documents" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconShield size={20} /> <span className="grow">{t('profile.documents')}</span> ›</Link></li>
           {isAdmin && <li><Link to="/admin" className="row" style={{ padding: '14px 0', color: 'inherit' }}><IconMegaphone size={20} /> <span className="grow">Campus admin</span> ›</Link></li>}
-          <li><button className="row" style={{ padding: '14px 0', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setPrivacyOpen(true)}><IconShield size={20} /> <span className="grow" style={{ textAlign: 'left' }}>Privacy & data</span> ›</button></li>
+          <li><button className="row" style={{ padding: '14px 0', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setPrivacyOpen(true)}><IconShield size={20} /> <span className="grow" style={{ textAlign: 'left' }}>{t('profile.privacy')}</span> ›</button></li>
           {serverOverrideAllowed && <li><button className="row" style={{ padding: '14px 0', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setDevOpen(true)}><IconSettings size={20} /> <span className="grow" style={{ textAlign: 'left' }}>Developer · server</span> ›</button></li>}
         </ul>
       </section>
 
       <section className="section">
-        <h2>Reminders</h2>
+        <h2>{t('profile.language')}</h2>
+        <div className="card">
+          <div className="chips" role="radiogroup" aria-label={t('profile.language')}>
+            {LANGUAGES.map((l) => (
+              <button key={l.code} type="button" role="radio" aria-checked={lang === l.code} className={`chip ${lang === l.code ? 'on' : ''}`} onClick={() => setLang(l.code)} lang={l.code}>{l.label}</button>
+            ))}
+          </div>
+          <p className="tiny faint" style={{ marginTop: 8 }}>{t('profile.languageHint')}</p>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2>{t('profile.reminders')}</h2>
         <div className="card">
           <label className="check"><input type="checkbox" checked={user.notificationPrefs.deadlineReminders} onChange={(e) => setPrefs({ deadlineReminders: e.target.checked })} /> Deadline & next-action reminders</label>
           <Field label="Remind me before a deadline">
@@ -106,9 +120,9 @@ export function ProfilePage() {
       </section>
 
       <section className="section">
-        <button className="btn block ghost" onClick={async () => { await signOut(); navigate('/welcome'); }}>Sign out</button>
-        <button className="btn block ghost" style={{ marginTop: 10 }} onClick={async () => { try { await signOutEverywhere(); navigate('/welcome'); } catch (e) { toast((e as Error).message); } }}>Sign out of all devices</button>
-        <button className="btn block danger" style={{ marginTop: 10 }} onClick={() => setDeleteOpen(true)}>Delete account</button>
+        <button className="btn block ghost" onClick={async () => { await signOut(); navigate('/welcome'); }}>{t('profile.signOut')}</button>
+        <button className="btn block ghost" style={{ marginTop: 10 }} onClick={async () => { try { await signOutEverywhere(); navigate('/welcome'); } catch (e) { toast((e as Error).message); } }}>{t('profile.signOutAll')}</button>
+        <button className="btn block danger" style={{ marginTop: 10 }} onClick={() => setDeleteOpen(true)}>{t('profile.delete')}</button>
         <p className="tiny faint" style={{ textAlign: 'center', marginTop: 16 }}>SarthiAI · {platform === 'android' ? 'Android app' : 'Web app'}</p>
       </section>
 

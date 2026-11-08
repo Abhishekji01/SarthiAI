@@ -22,7 +22,7 @@
   --amber: #7D5F0E; --amber-soft: #FBEDB8;
   --shadow: none;
   --radius: 18px; --radius-input: 14px; --radius-btn: 12px;
-  --font: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif;
+  --font: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Devanagari', 'Nirmala UI', Mangal, Arial, sans-serif;
   --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px);
   --nav-space: calc(64px + 24px + var(--safe-bottom)); /* floating bar height + its margins */
   color-scheme: light dark;
