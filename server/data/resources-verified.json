@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-08T16:33:00.934954+00:00",
+  "checkedAt": "2026-11-09T01:32:36.108157+00:00",
   "records": [
     {
       "title": "SQLBolt",
@@ -11,7 +11,7 @@
       ],
       "cost": "free",
       "description": "Interactive SQL lessons and exercises in the browser.",
-      "checkedAt": "2026-11-08T16:33:00.934954+00:00"
+      "checkedAt": "2026-11-09T01:32:36.108157+00:00"
     },
     {
       "title": "PostgreSQL Tutorial",
@@ -24,7 +24,7 @@
       ],
       "cost": "free",
       "description": "Step-by-step PostgreSQL and SQL tutorials with examples.",
-      "checkedAt": "2026-11-08T16:33:00.934954+00:00"
+      "checkedAt": "2026-11-09T01:32:36.108157+00:00"
     },
     {
       "title": "Machine Learning Crash Course",
@@ -35,7 +35,7 @@
       ],
       "cost": "free",
       "description": "Google's self-study introduction to machine learning concepts with exercises.",
-      "checkedAt": "2026-11-08T16:33:00.934954+00:00"
+      "checkedAt": "2026-11-09T01:32:36.108157+00:00"
     },
     {
       "title": "Kaggle Learn",
@@ -50,7 +50,7 @@
       ],
       "cost": "free",
       "description": "Short hands-on courses in Python, pandas, SQL and machine learning.",
-      "checkedAt": "2026-11-08T16:33:00.934954+00:00"
+      "checkedAt": "2026-11-09T01:32:36.108157+00:00"
     },
     {
       "title": "Practical Deep Learning for Coders",
@@ -62,7 +62,7 @@
       ],
       "cost": "free",
       "description": "A practical, code-first deep learning course.",
-      "checkedAt": "2026-11-08T16:33:00.934954+00:00"
+      "checkedAt": "2026-11-09T01:32:36.108157+00:00"
     },
     {
       "title": "The Python Tutorial",
@@ -73,7 +73,7 @@
       ],
       "cost": "free",
       "description": "The official introduction to the Python language.",
-      "checkedAt": "2026-11-08T16:33:00.934954+00:00"
+      "checkedAt": "2026-11-09T01:32:36.108157+00:00"
     },
     {
       "title": "Learn React",
@@ -86,7 +86,7 @@
       ],
       "cost": "free",
       "description": "The official React tutorial and guides.",
-      "checkedAt": "2026-11-08T16:33:00.934954+00:00"
+      "checkedAt": "2026-11-09T01:32:36.108157+00:00"
     },
     {
       "title": "Docker: Get started",
@@ -98,7 +98,7 @@
       ],
       "cost": "free",
       "description": "Official introduction to containers and Docker.",
-      "checkedAt": "2026-11-08T16:33:00.934954+00:00"
+      "checkedAt": "2026-11-09T01:32:36.108157+00:00"
     },
     {
       "title": "Statistics and probability",
@@ -109,7 +109,7 @@
       ],
       "cost": "free",
       "description": "Video lessons and practice on statistics and probability.",
-      "checkedAt": "2026-11-08T16:33:00.934954+00:00"
+      "checkedAt": "2026-11-09T01:32:36.108157+00:00"
     },
     {
       "title": "The Odin Project",
@@ -124,7 +124,7 @@
       ],
       "cost": "free",
       "description": "A free full-stack web development curriculum.",
-      "checkedAt": "2026-11-08T16:33:00.934954+00:00"
+      "checkedAt": "2026-11-09T01:32:36.108157+00:00"
     }
   ]
 }
